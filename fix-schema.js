@@ -153,7 +153,7 @@ async function main() {
     // Step 4: Create the actual many-to-many relationships
     console.log('\n4. Creating many-to-many relationships...');
     
-    // Products -> Categories relation
+    // Products -> Categories relation (using junction table)
     try {
       await directusAPI('/relations', {
         method: 'POST',
@@ -166,15 +166,6 @@ async function main() {
             junction_field: 'categories_id',
             sort_field: null,
             one_deselect_action: 'delete'
-          },
-          schema: {
-            table: 'products_categories',
-            column: 'products_id',
-            foreign_key_table: 'products',
-            foreign_key_column: 'id',
-            constraint_name: null,
-            on_update: 'NO ACTION',
-            on_delete: 'CASCADE'
           }
         })
       });
@@ -196,15 +187,6 @@ async function main() {
             junction_field: 'products_id',
             sort_field: null,
             one_deselect_action: 'delete'
-          },
-          schema: {
-            table: 'products_categories',
-            column: 'categories_id',
-            foreign_key_table: 'categories',
-            foreign_key_column: 'id',
-            constraint_name: null,
-            on_update: 'NO ACTION',
-            on_delete: 'CASCADE'
           }
         })
       });
