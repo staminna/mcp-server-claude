@@ -177,6 +177,63 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
   };
 });
 
+// Schema management tools
+const schemaManagementTools = [
+  {
+    name: 'create_relation',
+    description: 'Create a relationship between collections',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collection: { type: 'string', description: 'Source collection name' },
+        field: { type: 'string', description: 'Field name in source collection' },
+        related_collection: { type: 'string', description: 'Target collection name' },
+        relation_type: { 
+          type: 'string', 
+          enum: ['o2m', 'm2o', 'm2m'],
+          description: 'Relationship type: o2m (one-to-many), m2o (many-to-one), m2m (many-to-many)'
+        },
+        junction_field: { type: 'string', description: 'Junction field for m2m relationships' }
+      },
+      required: ['collection', 'field', 'related_collection', 'relation_type']
+    }
+  },
+  {
+    name: 'create_field',
+    description: 'Create a new field in a collection',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collection: { type: 'string', description: 'Collection name' },
+        field: { type: 'string', description: 'Field name' },
+        type: { type: 'string', description: 'Field type (integer, string, text, etc.)' },
+        meta: { type: 'object', description: 'Field metadata options' }
+      },
+      required: ['collection', 'field', 'type']
+    }
+  },
+  {
+    name: 'delete_field',
+    description: 'Delete a field from a collection',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collection: { type: 'string', description: 'Collection name' },
+        field: { type: 'string', description: 'Field name to delete' }
+      },
+      required: ['collection', 'field']
+    }
+  },
+  {
+    name: 'fix_products_categories_relation',
+    description: 'Fix the products-categories many-to-many relationship',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    }
+  }
+];
+
 // List available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
@@ -250,6 +307,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
       },
+      ...schemaManagementTools,
+      ...excisatyTools,
     ],
   };
 });
@@ -258,10 +317,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
+  // Handle schema management tools
+  if (['create_field', 'delete_field', 'create_relation', 'fix_products_categories_relation'].includes(name)) {
+    return await handleSchemaTools(name, args);
+  }
+
+  // Handle Excisaty tools
+  if (['sync_excisaty_inventory', 'get_excisaty_product', 'create_dropship_order', 'check_order_status'].includes(name)) {
+    return await handleExcisatyTools(name, args);
+  }
+
   switch (name) {
     case 'list_collections': {
       const collections = await getCollections();
-      // const nonSystemCollections = collections.filter(c => !c.collection.startsWith('directus_'));
+      const nonSystemCollections = collections.filter(c => !c.collection.startsWith('directus_'));
       
       return {
         content: [
@@ -434,6 +503,212 @@ const excisatyTools = [
     }
   }
 ];
+
+// Schema management tools handler
+async function handleSchemaTools(toolName, args) {
+  switch (toolName) {
+    case 'create_field': {
+      const { collection, field, type, meta = {} } = args;
+      
+      try {
+        const response = await directusAPI('/fields/' + collection, {
+          method: 'POST',
+          body: JSON.stringify({
+            field: field,
+            type: type,
+            meta: {
+              interface: 'input',
+              options: {},
+              display: 'raw',
+              display_options: {},
+              readonly: false,
+              hidden: false,
+              sort: null,
+              width: 'full',
+              translations: null,
+              note: null,
+              conditions: null,
+              required: false,
+              group: null,
+              validation: null,
+              validation_message: null,
+              ...meta
+            },
+            schema: {
+              name: field,
+              table: collection,
+              data_type: type,
+              default_value: null,
+              max_length: null,
+              numeric_precision: null,
+              numeric_scale: null,
+              is_nullable: true,
+              is_unique: false,
+              is_primary_key: false,
+              has_auto_increment: false,
+              foreign_key_column: null,
+              foreign_key_table: null,
+              comment: null
+            }
+          })
+        });
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Field '${field}' created successfully in collection '${collection}'`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Error creating field: ${error.message}`
+          }]
+        };
+      }
+    }
+
+    case 'delete_field': {
+      const { collection, field } = args;
+      
+      try {
+        await directusAPI(`/fields/${collection}/${field}`, {
+          method: 'DELETE'
+        });
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Field '${field}' deleted from collection '${collection}'`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Error deleting field: ${error.message}`
+          }]
+        };
+      }
+    }
+
+    case 'create_relation': {
+      const { collection, field, related_collection, relation_type, junction_field } = args;
+      
+      try {
+        let relationData = {
+          collection: collection,
+          field: field,
+          related_collection: related_collection
+        };
+
+        if (relation_type === 'm2m') {
+          relationData.meta = {
+            one_field: field,
+            junction_field: junction_field,
+            sort_field: null,
+            one_deselect_action: 'nullify'
+          };
+        }
+
+        const response = await directusAPI('/relations', {
+          method: 'POST',
+          body: JSON.stringify(relationData)
+        });
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Relation created: ${collection}.${field} -> ${related_collection} (${relation_type})`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Error creating relation: ${error.message}`
+          }]
+        };
+      }
+    }
+
+    case 'fix_products_categories_relation': {
+      try {
+        // Step 1: Ensure products_categories junction table has proper structure
+        const productsField = await directusAPI('/fields/products_categories', {
+          method: 'POST',
+          body: JSON.stringify({
+            field: 'products_id',
+            type: 'integer',
+            meta: {
+              interface: 'select-dropdown-m2o',
+              special: ['m2o']
+            },
+            schema: {
+              is_nullable: false
+            }
+          })
+        }).catch(() => null); // Ignore if field already exists
+
+        const categoriesField = await directusAPI('/fields/products_categories', {
+          method: 'POST',
+          body: JSON.stringify({
+            field: 'categories_id',
+            type: 'integer',
+            meta: {
+              interface: 'select-dropdown-m2o',
+              special: ['m2o']
+            },
+            schema: {
+              is_nullable: false
+            }
+          })
+        }).catch(() => null); // Ignore if field already exists
+
+        // Step 2: Create the many-to-many relation
+        const relation = await directusAPI('/relations', {
+          method: 'POST',
+          body: JSON.stringify({
+            collection: 'products',
+            field: 'categories',
+            related_collection: 'categories',
+            meta: {
+              one_field: 'products',
+              junction_field: 'categories_id',
+              sort_field: null,
+              one_deselect_action: 'delete'
+            },
+            schema: {
+              table: 'products_categories',
+              column: 'products_id',
+              foreign_key_table: 'products',
+              foreign_key_column: 'id',
+              constraint_name: null,
+              on_update: 'NO ACTION',
+              on_delete: 'CASCADE'
+            }
+          })
+        }).catch(e => ({ error: e.message }));
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Products-Categories M2M relationship fix completed:\n${JSON.stringify(relation, null, 2)}`
+          }]
+        };
+
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Error fixing relation: ${error.message}`
+          }]
+        };
+      }
+    }
+  }
+}
 
 // Add to your CallToolRequestSchema handler
 async function handleExcisatyTools(toolName, args) {
