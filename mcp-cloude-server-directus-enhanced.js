@@ -131,6 +131,478 @@ function extractVariables(text) {
   return [...new Set(matches.map(match => match.slice(2, -2).trim()))];
 }
 
+// Data creation tools handler
+async function handleDataCreationTools(toolName, args) {
+  switch (toolName) {
+    case 'create_product': {
+      const productData = {
+        name: args.name,
+        slug: args.slug || args.name.toLowerCase().replace(/\s+/g, '-'),
+        sku: args.sku,
+        price: args.price,
+        sale_price: args.sale_price || null,
+        description: args.description || '',
+        short_description: args.short_description || '',
+        category: args.category || null,
+        stock_quantity: args.stock_quantity || 0,
+        weight: args.weight || null,
+        status: args.status || 'published',
+        featured: args.featured || false,
+        tags: args.tags || [],
+        date_created: new Date().toISOString(),
+        date_updated: new Date().toISOString()
+      };
+
+      try {
+        const response = await directusAPI('/items/products', {
+          method: 'POST',
+          body: JSON.stringify(productData)
+        });
+
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Product created successfully!\n\n${JSON.stringify(response.data, null, 2)}`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Error creating product: ${error.message}`
+          }]
+        };
+      }
+    }
+
+    case 'create_category': {
+      const categoryData = {
+        name: args.name,
+        slug: args.slug || args.name.toLowerCase().replace(/\s+/g, '-'),
+        description: args.description || '',
+        status: args.status || 'published',
+        sort: args.sort || null,
+        date_created: new Date().toISOString(),
+        date_updated: new Date().toISOString()
+      };
+
+      try {
+        const response = await directusAPI('/items/categories', {
+          method: 'POST',
+          body: JSON.stringify(categoryData)
+        });
+
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Category created successfully!\n\n${JSON.stringify(response.data, null, 2)}`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Error creating category: ${error.message}`
+          }]
+        };
+      }
+    }
+
+    case 'create_customer': {
+      const customerData = {
+        email: args.email,
+        first_name: args.first_name,
+        last_name: args.last_name,
+        phone: args.phone || null,
+        date_of_birth: args.date_of_birth || null,
+        gender: args.gender || null,
+        billing_address: args.billing_address || null,
+        shipping_address: args.shipping_address || null,
+        status: args.status || 'active',
+        total_spent: 0,
+        orders_count: 0,
+        notes: args.notes || '',
+        date_created: new Date().toISOString(),
+        date_updated: new Date().toISOString()
+      };
+
+      try {
+        const response = await directusAPI('/items/customers', {
+          method: 'POST',
+          body: JSON.stringify(customerData)
+        });
+
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Customer created successfully!\n\n${JSON.stringify(response.data, null, 2)}`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Error creating customer: ${error.message}`
+          }]
+        };
+      }
+    }
+
+    case 'create_order': {
+      const orderData = {
+        order_number: args.order_number || `ORD-${Date.now()}`,
+        customer: args.customer,
+        status: args.status || 'pending',
+        payment_status: args.payment_status || 'pending',
+        subtotal: args.subtotal,
+        tax_amount: args.tax_amount || 0,
+        shipping_amount: args.shipping_amount || 0,
+        discount_amount: args.discount_amount || 0,
+        total: args.total,
+        currency: args.currency || 'USD',
+        billing_address: args.billing_address || null,
+        shipping_address: args.shipping_address || null,
+        shipping_method: args.shipping_method || '',
+        payment_method: args.payment_method || '',
+        notes: args.notes || '',
+        date_created: new Date().toISOString(),
+        date_updated: new Date().toISOString()
+      };
+
+      try {
+        const response = await directusAPI('/items/orders', {
+          method: 'POST',
+          body: JSON.stringify(orderData)
+        });
+
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Order created successfully!\n\n${JSON.stringify(response.data, null, 2)}`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Error creating order: ${error.message}`
+          }]
+        };
+      }
+    }
+
+    case 'create_order_item': {
+      const orderItemData = {
+        order: args.order,
+        product: args.product,
+        quantity: args.quantity,
+        unit_price: args.unit_price,
+        total_price: args.total_price,
+        product_snapshot: args.product_snapshot || null
+      };
+
+      try {
+        const response = await directusAPI('/items/order_items', {
+          method: 'POST',
+          body: JSON.stringify(orderItemData)
+        });
+
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Order item created successfully!\n\n${JSON.stringify(response.data, null, 2)}`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Error creating order item: ${error.message}`
+          }]
+        };
+      }
+    }
+
+    case 'bulk_create_sample_data': {
+      const results = [];
+      
+      try {
+        // Create categories
+        const categories = [
+          { name: 'Electronics', description: 'Electronic devices and gadgets', sort: 1 },
+          { name: 'Clothing', description: 'Fashion and apparel', sort: 2 },
+          { name: 'Home & Garden', description: 'Home improvement and garden supplies', sort: 3 },
+          { name: 'Books', description: 'Books and literature', sort: 4 },
+          { name: 'Sports', description: 'Sports equipment and gear', sort: 5 }
+        ];
+
+        const createdCategories = [];
+        for (const category of categories) {
+          const categoryData = {
+            ...category,
+            slug: category.name.toLowerCase().replace(/\s+/g, '-'),
+            status: 'published',
+            date_created: new Date().toISOString(),
+            date_updated: new Date().toISOString()
+          };
+
+          try {
+            const response = await directusAPI('/items/categories', {
+              method: 'POST',
+              body: JSON.stringify(categoryData)
+            });
+            createdCategories.push(response.data);
+            results.push(`✅ Category created: ${category.name}`);
+          } catch (error) {
+            results.push(`❌ Failed to create category ${category.name}: ${error.message}`);
+          }
+        }
+
+        // Create products
+        const products = [
+          {
+            name: 'Wireless Headphones',
+            sku: 'WH001',
+            price: 99.99,
+            sale_price: 79.99,
+            description: 'Premium wireless headphones with noise cancellation',
+            short_description: 'High-quality wireless headphones',
+            category: createdCategories.find(c => c.name === 'Electronics')?.id,
+            stock_quantity: 50,
+            weight: 0.3,
+            featured: true,
+            tags: ['electronics', 'audio', 'wireless']
+          },
+          {
+            name: 'Cotton T-Shirt',
+            sku: 'CT001',
+            price: 24.99,
+            description: 'Comfortable 100% cotton t-shirt',
+            category: createdCategories.find(c => c.name === 'Clothing')?.id,
+            stock_quantity: 100,
+            weight: 0.2,
+            featured: false,
+            tags: ['clothing', 'cotton', 'casual']
+          },
+          {
+            name: 'Coffee Maker',
+            sku: 'CM001',
+            price: 129.99,
+            description: 'Programmable coffee maker with 12-cup capacity',
+            category: createdCategories.find(c => c.name === 'Home & Garden')?.id,
+            stock_quantity: 25,
+            weight: 2.5,
+            featured: true,
+            tags: ['home', 'kitchen', 'coffee']
+          },
+          {
+            name: 'JavaScript Programming Book',
+            sku: 'JS001',
+            price: 39.99,
+            description: 'Complete guide to modern JavaScript programming',
+            category: createdCategories.find(c => c.name === 'Books')?.id,
+            stock_quantity: 75,
+            weight: 0.8,
+            featured: false,
+            tags: ['books', 'programming', 'javascript']
+          },
+          {
+            name: 'Yoga Mat',
+            sku: 'YM001',
+            price: 29.99,
+            description: 'Non-slip yoga mat with carrying strap',
+            category: createdCategories.find(c => c.name === 'Sports')?.id,
+            stock_quantity: 60,
+            weight: 1.2,
+            featured: false,
+            tags: ['sports', 'yoga', 'fitness']
+          }
+        ];
+
+        const createdProducts = [];
+        for (const product of products) {
+          const productData = {
+            ...product,
+            slug: product.name.toLowerCase().replace(/\s+/g, '-'),
+            status: 'published',
+            date_created: new Date().toISOString(),
+            date_updated: new Date().toISOString()
+          };
+
+          try {
+            const response = await directusAPI('/items/products', {
+              method: 'POST',
+              body: JSON.stringify(productData)
+            });
+            createdProducts.push(response.data);
+            results.push(`✅ Product created: ${product.name}`);
+          } catch (error) {
+            results.push(`❌ Failed to create product ${product.name}: ${error.message}`);
+          }
+        }
+
+        // Create customers
+        const customers = [
+          {
+            email: 'john.doe@example.com',
+            first_name: 'John',
+            last_name: 'Doe',
+            phone: '+1234567890',
+            date_of_birth: '1990-05-15',
+            gender: 'male',
+            billing_address: {
+              street: '123 Main St',
+              city: 'New York',
+              state: 'NY',
+              zip: '10001',
+              country: 'USA'
+            }
+          },
+          {
+            email: 'jane.smith@example.com',
+            first_name: 'Jane',
+            last_name: 'Smith',
+            phone: '+1234567891',
+            date_of_birth: '1985-08-22',
+            gender: 'female',
+            billing_address: {
+              street: '456 Oak Ave',
+              city: 'Los Angeles',
+              state: 'CA',
+              zip: '90210',
+              country: 'USA'
+            }
+          },
+          {
+            email: 'bob.johnson@example.com',
+            first_name: 'Bob',
+            last_name: 'Johnson',
+            phone: '+1234567892',
+            date_of_birth: '1992-03-10',
+            gender: 'male',
+            billing_address: {
+              street: '789 Pine St',
+              city: 'Chicago',
+              state: 'IL',
+              zip: '60601',
+              country: 'USA'
+            }
+          }
+        ];
+
+        const createdCustomers = [];
+        for (const customer of customers) {
+          const customerData = {
+            ...customer,
+            status: 'active',
+            date_created: new Date().toISOString(),
+            date_updated: new Date().toISOString()
+          };
+
+          try {
+            const response = await directusAPI('/items/customers', {
+              method: 'POST',
+              body: JSON.stringify(customerData)
+            });
+            createdCustomers.push(response.data);
+            results.push(`✅ Customer created: ${customer.first_name} ${customer.last_name}`);
+          } catch (error) {
+            results.push(`❌ Failed to create customer ${customer.first_name}: ${error.message}`);
+          }
+        }
+
+        // Create orders
+        const orders = [
+          {
+            customer: createdCustomers[0]?.id,
+            status: 'delivered',
+            payment_status: 'paid',
+            subtotal: 79.99,
+            tax_amount: 6.40,
+            shipping_amount: 9.99,
+            total: 96.38,
+            currency: 'USD',
+            payment_method: 'credit_card',
+            shipping_method: 'standard',
+            billing_address: createdCustomers[0]?.billing_address,
+            shipping_address: createdCustomers[0]?.billing_address
+          },
+          {
+            customer: createdCustomers[1]?.id,
+            status: 'processing',
+            payment_status: 'paid',
+            subtotal: 154.98,
+            tax_amount: 12.40,
+            shipping_amount: 0.00,
+            total: 167.38,
+            currency: 'USD',
+            payment_method: 'paypal',
+            shipping_method: 'express',
+            billing_address: createdCustomers[1]?.billing_address,
+            shipping_address: createdCustomers[1]?.billing_address
+          },
+          {
+            customer: createdCustomers[2]?.id,
+            status: 'pending',
+            payment_status: 'pending',
+            subtotal: 69.98,
+            tax_amount: 5.60,
+            shipping_amount: 7.99,
+            total: 83.57,
+            currency: 'USD',
+            payment_method: 'bank_transfer',
+            shipping_method: 'standard',
+            billing_address: createdCustomers[2]?.billing_address,
+            shipping_address: createdCustomers[2]?.billing_address
+          }
+        ];
+
+        const createdOrders = [];
+        for (let i = 0; i < orders.length; i++) {
+          const order = orders[i];
+          if (!order.customer) continue;
+
+          const orderData = {
+            ...order,
+            order_number: `ORD-${String(i + 1).padStart(3, '0')}`,
+            date_created: new Date().toISOString(),
+            date_updated: new Date().toISOString()
+          };
+
+          try {
+            const response = await directusAPI('/items/orders', {
+              method: 'POST',
+              body: JSON.stringify(orderData)
+            });
+            createdOrders.push(response.data);
+            results.push(`✅ Order created: ${orderData.order_number}`);
+          } catch (error) {
+            results.push(`❌ Failed to create order ${orderData.order_number}: ${error.message}`);
+          }
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: `🎉 Sample data creation completed!\n\n${results.join('\n')}\n\n📊 Summary:\n- Categories: ${createdCategories.length}\n- Products: ${createdProducts.length}\n- Customers: ${createdCustomers.length}\n- Orders: ${createdOrders.length}`
+          }]
+        };
+
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Error creating sample data: ${error.message}\n\nPartial results:\n${results.join('\n')}`
+          }]
+        };
+      }
+    }
+
+    default:
+      throw new Error(`Unknown data creation tool: ${toolName}`);
+  }
+}
+
 // Schema management tools handler
 async function handleSchemaTools(toolName, args) {
   switch (toolName) {
@@ -691,6 +1163,116 @@ const schemaManagementTools = [
   }
 ];
 
+const dataCreationTools = [
+  {
+    name: 'create_product',
+    description: 'Create a new product in the store',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Product name' },
+        slug: { type: 'string', description: 'URL slug (auto-generated if not provided)' },
+        sku: { type: 'string', description: 'Product SKU' },
+        price: { type: 'number', description: 'Product price' },
+        sale_price: { type: 'number', description: 'Sale price (optional)' },
+        description: { type: 'string', description: 'Product description' },
+        short_description: { type: 'string', description: 'Short description' },
+        category: { type: 'number', description: 'Category ID' },
+        stock_quantity: { type: 'number', description: 'Stock quantity' },
+        weight: { type: 'number', description: 'Product weight' },
+        status: { type: 'string', enum: ['published', 'draft', 'out_of_stock'], description: 'Product status' },
+        featured: { type: 'boolean', description: 'Featured product' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Product tags' }
+      },
+      required: ['name', 'sku', 'price']
+    }
+  },
+  {
+    name: 'create_category',
+    description: 'Create a new product category',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Category name' },
+        slug: { type: 'string', description: 'URL slug (auto-generated if not provided)' },
+        description: { type: 'string', description: 'Category description' },
+        status: { type: 'string', enum: ['published', 'draft', 'archived'], description: 'Category status' },
+        sort: { type: 'number', description: 'Sort order' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'create_customer',
+    description: 'Create a new customer',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', description: 'Customer email' },
+        first_name: { type: 'string', description: 'First name' },
+        last_name: { type: 'string', description: 'Last name' },
+        phone: { type: 'string', description: 'Phone number' },
+        date_of_birth: { type: 'string', description: 'Date of birth (YYYY-MM-DD)' },
+        gender: { type: 'string', enum: ['male', 'female', 'other', 'not_specified'], description: 'Gender' },
+        billing_address: { type: 'object', description: 'Billing address object' },
+        shipping_address: { type: 'object', description: 'Shipping address object' },
+        status: { type: 'string', enum: ['active', 'inactive', 'banned'], description: 'Customer status' },
+        notes: { type: 'string', description: 'Customer notes' }
+      },
+      required: ['email', 'first_name', 'last_name']
+    }
+  },
+  {
+    name: 'create_order',
+    description: 'Create a new order',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        order_number: { type: 'string', description: 'Order number (auto-generated if not provided)' },
+        customer: { type: 'number', description: 'Customer ID' },
+        status: { type: 'string', enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'], description: 'Order status' },
+        payment_status: { type: 'string', enum: ['pending', 'paid', 'failed', 'refunded'], description: 'Payment status' },
+        subtotal: { type: 'number', description: 'Subtotal amount' },
+        tax_amount: { type: 'number', description: 'Tax amount' },
+        shipping_amount: { type: 'number', description: 'Shipping amount' },
+        discount_amount: { type: 'number', description: 'Discount amount' },
+        total: { type: 'number', description: 'Total amount' },
+        currency: { type: 'string', description: 'Currency code' },
+        billing_address: { type: 'object', description: 'Billing address object' },
+        shipping_address: { type: 'object', description: 'Shipping address object' },
+        shipping_method: { type: 'string', description: 'Shipping method' },
+        payment_method: { type: 'string', description: 'Payment method' },
+        notes: { type: 'string', description: 'Order notes' }
+      },
+      required: ['customer', 'subtotal', 'total']
+    }
+  },
+  {
+    name: 'create_order_item',
+    description: 'Add an item to an order',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        order: { type: 'number', description: 'Order ID' },
+        product: { type: 'number', description: 'Product ID' },
+        quantity: { type: 'number', description: 'Quantity' },
+        unit_price: { type: 'number', description: 'Unit price' },
+        total_price: { type: 'number', description: 'Total price' },
+        product_snapshot: { type: 'object', description: 'Product details snapshot' }
+      },
+      required: ['order', 'product', 'quantity', 'unit_price', 'total_price']
+    }
+  },
+  {
+    name: 'bulk_create_sample_data',
+    description: 'Create complete sample data including categories, products, customers, and orders',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  }
+];
+
 const excisatyTools = [
   {
     name: 'sync_excisaty_inventory',
@@ -730,8 +1312,8 @@ const excisatyTools = [
 // Create MCP server
 const server = new Server(
   {
-    name: 'directus-custom-mcp',
-    version: '1.0.0',
+    name: 'directus-custom-mcp-enhanced',
+    version: '1.1.0',
   },
   {
     capabilities: {
@@ -889,6 +1471,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       ...schemaManagementTools,
+      ...dataCreationTools,
       ...excisatyTools,
     ],
   };
@@ -897,6 +1480,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+
+  // Handle data creation tools
+  if (['create_product', 'create_category', 'create_customer', 'create_order', 'create_order_item', 'bulk_create_sample_data'].includes(name)) {
+    return await handleDataCreationTools(name, args);
+  }
 
   // Handle schema management tools
   if (['create_collection', 'create_field', 'delete_field', 'create_relation', 'list_schema_info', 'fix_products_categories_relation'].includes(name)) {
@@ -992,7 +1580,7 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('Directus Custom MCP Server running on stdio');
+  console.error('Directus Custom MCP Server (Enhanced) running on stdio');
 }
 
 main().catch((error) => {
