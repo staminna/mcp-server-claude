@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import 'dotenv/config';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -210,7 +211,7 @@ async function deleteCollectionItems(collection, itemIds = null) {
 // Extract variables from prompt text (mustache-style)
 function extractVariables(text) {
   if (!text) return [];
-  const matches = text.match(/\\{\\{([^}]+)\\}\\}/g);
+  const matches = text.match(/\{\{([^}]+)\}\}/g);
   if (!matches) return [];
   return [...new Set(matches.map(match => match.slice(2, -2).trim()))];
 }
@@ -237,9 +238,7 @@ async function handleGenericItemCreation(collection, itemData, requiredFields = 
     return {
       content: [{
         type: 'text',
-        text: `${collection.charAt(0).toUpperCase() + collection.slice(1)} item created successfully!\
-\
-${JSON.stringify(result, null, 2)}`
+        text: `${collection.charAt(0).toUpperCase() + collection.slice(1)} item created successfully!\n\n${JSON.stringify(result, null, 2)}`
       }]
     };
   } catch (error) {
@@ -282,19 +281,7 @@ async function handleSchemaTools(toolName, args) {
         return {
           content: [{
             type: 'text',
-            text: `Schema Information:\
-\
-Collections: ${userCollections.length}\
-Relations: ${relations.data?.length || 0}\
-\
-User Collections:\
-${JSON.stringify(userCollections.map(c => c.collection), null, 2)}\
-\
-Relations:\
-${JSON.stringify(relations.data, null, 2)}\
-\
-Fields by Collection:\
-${JSON.stringify(fieldsData, null, 2)}`
+            text: `Schema Information:\n\nCollections: ${userCollections.length}\nRelations: ${relations.data?.length || 0}\n\nUser Collections:\n${JSON.stringify(userCollections.map(c => c.collection), null, 2)}\n\nRelations:\n${JSON.stringify(relations.data, null, 2)}\n\nFields by Collection:\n${JSON.stringify(fieldsData, null, 2)}`
           }]
         };
       } catch (error) {
@@ -345,9 +332,7 @@ ${JSON.stringify(fieldsData, null, 2)}`
         return {
           content: [{
             type: 'text',
-            text: `Collection '${collection}' created successfully\
-\
-${JSON.stringify(response, null, 2)}`
+            text: `Collection '${collection}' created successfully\n\n${JSON.stringify(response, null, 2)}`
           }]
         };
       } catch (error) {
@@ -411,9 +396,7 @@ ${JSON.stringify(response, null, 2)}`
         return {
           content: [{
             type: 'text',
-            text: `Field '${field}' created successfully in collection '${collection}'\
-\
-${JSON.stringify(response, null, 2)}`
+            text: `Field '${field}' created successfully in collection '${collection}'\n\n${JSON.stringify(response, null, 2)}`
           }]
         };
       } catch (error) {
@@ -459,9 +442,7 @@ ${JSON.stringify(response, null, 2)}`
         return {
           content: [{
             type: 'text',
-            text: `Relation created: ${collection}.${field} -> ${related_collection} (${relation_type})\
-\
-${JSON.stringify(response, null, 2)}`
+            text: `Relation created: ${collection}.${field} -> ${related_collection} (${relation_type})\n\n${JSON.stringify(response, null, 2)}`
           }]
         };
       } catch (error) {
@@ -527,9 +508,7 @@ async function handleDataCreationTools(toolName, args) {
         return {
           content: [{
             type: 'text',
-            text: `Batch created ${items.length} items in ${collection}!\
-\
-${JSON.stringify(result, null, 2)}`
+            text: `Batch created ${items.length} items in ${collection}!\n\n${JSON.stringify(result, null, 2)}`
           }]
         };
       } catch (error) {
@@ -545,7 +524,7 @@ ${JSON.stringify(result, null, 2)}`
     case 'create_category': {
       const categoryData = {
         name: args.name,
-        slug: args.slug || args.name.toLowerCase().replace(/\\s+/g, '-'),
+        slug: args.slug || args.name.toLowerCase().replace(/\s+/g, '-'),
         description: args.description || '',
         status: args.status || 'published',
         sort: args.sort || null
@@ -557,7 +536,7 @@ ${JSON.stringify(result, null, 2)}`
     case 'create_product': {
       const productData = {
         name: args.name,
-        slug: args.slug || args.name.toLowerCase().replace(/\\s+/g, '-'),
+        slug: args.slug || args.name.toLowerCase().replace(/\s+/g, '-'),
         sku: args.sku,
         price: args.price,
         sale_price: args.sale_price || null,
@@ -628,9 +607,7 @@ ${JSON.stringify(result, null, 2)}`
         return {
           content: [{
             type: 'text',
-            text: `Order item created successfully!\
-\
-${JSON.stringify(result, null, 2)}`
+            text: `Order item created successfully!\n\n${JSON.stringify(result, null, 2)}`
           }]
         };
       } catch (error) {
@@ -1043,9 +1020,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: 'text',
-              text: `Available collections:\
-${nonSystemCollections.map(c => `• ${c.collection}: ${c.meta?.note || 'No description'}`).join('\
-')}`,
+              text: `Available collections:\n${nonSystemCollections.map(c => `• ${c.collection}: ${c.meta?.note || 'No description'}`).join('\n')}`,
             },
           ],
         };
@@ -1059,9 +1034,7 @@ ${nonSystemCollections.map(c => `• ${c.collection}: ${c.meta?.note || 'No desc
           content: [
             {
               type: 'text',
-              text: `Items from ${collection} collection:\
-\
-${JSON.stringify(items, null, 2)}`,
+              text: `Items from ${collection} collection:\n\n${JSON.stringify(items, null, 2)}`,
             },
           ],
         };
@@ -1075,11 +1048,7 @@ ${JSON.stringify(items, null, 2)}`,
           content: [
             {
               type: 'text',
-              text: result.message + (result.errors ? `\
-\
-Errors:\
-${result.errors.join('\
-')}` : ''),
+              text: result.message + (result.errors ? `\n\nErrors:\n${result.errors.join('\n')}` : ''),
             },
           ],
         };
@@ -1093,9 +1062,7 @@ ${result.errors.join('\
           content: [
             {
               type: 'text',
-              text: `Products (${products.length} items):\
-\
-${JSON.stringify(products, null, 2)}`,
+              text: `Products (${products.length} items):\n\n${JSON.stringify(products, null, 2)}`,
             },
           ],
         };
@@ -1109,9 +1076,7 @@ ${JSON.stringify(products, null, 2)}`,
           content: [
             {
               type: 'text',
-              text: `Customers (${customers.length} items):\
-\
-${JSON.stringify(customers, null, 2)}`,
+              text: `Customers (${customers.length} items):\n\n${JSON.stringify(customers, null, 2)}`,
             },
           ],
         };
@@ -1125,9 +1090,7 @@ ${JSON.stringify(customers, null, 2)}`,
           content: [
             {
               type: 'text',
-              text: `Orders (${orders.length} items):\
-\
-${JSON.stringify(orders, null, 2)}`,
+              text: `Orders (${orders.length} items):\n\n${JSON.stringify(orders, null, 2)}`,
             },
           ],
         };
