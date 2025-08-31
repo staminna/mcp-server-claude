@@ -12,6 +12,7 @@ import { UserTools } from './tools/user-tools.js';
 import { FileTools } from './tools/file-tools.js';
 import { FlowTools } from './tools/flow-tools.js';
 import { SchemaTools } from './tools/schema-tools.js';
+import { DiagnosticTools } from './tools/diagnostic-tools.js';
 import { logger } from './utils/logger.js';
 import { DirectusConfig } from './types/directus.js';
 
@@ -38,6 +39,7 @@ const userTools = new UserTools(directusClient);
 const fileTools = new FileTools(directusClient);
 const flowTools = new FlowTools(directusClient);
 const schemaTools = new SchemaTools(directusClient);
+const diagnosticTools = new DiagnosticTools(directusClient);
 
 // Initialize MCP server
 const server = new Server(
@@ -294,6 +296,43 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['collection'],
         },
       },
+      // Diagnostic Tools
+      {
+        name: 'diagnose_collection_access',
+        description: 'Diagnose collection access issues and permissions',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            collection: { type: 'string', description: 'Collection name to diagnose' },
+            includePermissions: { type: 'boolean', description: 'Include permission checks' },
+            includeFields: { type: 'boolean', description: 'Include field access tests' },
+            includeRelations: { type: 'boolean', description: 'Include relation access tests' }
+          },
+          required: ['collection'],
+        },
+      },
+      {
+        name: 'refresh_collection_cache',
+        description: 'Refresh Directus collection cache and verify access',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            collection: { type: 'string', description: 'Specific collection to verify after refresh' }
+          },
+        },
+      },
+      {
+        name: 'validate_collection_creation',
+        description: 'Validate that a newly created collection is properly accessible',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            collection: { type: 'string', description: 'Collection name to validate' },
+            waitTime: { type: 'number', description: 'Wait time in milliseconds before retry (default: 2000)' }
+          },
+          required: ['collection'],
+        },
+      },
       // User Management
       {
         name: 'get_users',
@@ -402,6 +441,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       result = await schemaTools.createRelationship(args as any);
     } else if (name === 'validate_collection_schema') {
       result = await schemaTools.validateCollectionSchema(args as any);
+    
+    // Diagnostic Tools
+    } else if (name === 'diagnose_collection_access') {
+      result = await diagnosticTools.diagnoseCollectionAccess(args as any);
+    } else if (name === 'refresh_collection_cache') {
+      result = await diagnosticTools.refreshCollectionCache(args as any);
+    } else if (name === 'validate_collection_creation') {
+      result = await diagnosticTools.validateCollectionCreation(args as any);
 
     // User Management Tools
     } else if (name === 'get_users') {
