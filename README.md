@@ -300,6 +300,50 @@ This MCP server was developed to address limitations in the official Directus MC
 3. **Extensions**: Integration with other headless CMS or e-commerce platforms
 4. **Documentation**: Improvements to setup guides or troubleshooting
 
+# Axios with Comprehensive Error Handling
+
+Replaced native fetch with axios for better error handling
+Added retry logic with exponential backoff
+Comprehensive error parsing for Directus-specific errors
+Request/response interceptors for detailed logging
+
+# Real-time WebSocket Support
+
+Auto-reconnecting WebSocket with heartbeat mechanism
+Event subscription management
+Graceful failure handling when WebSocket unavailable
+Real-time update notifications
+
+# STDIO Compliant Logging
+
+Logger class that uses stderr instead of stdout
+Structured logging with context and timing
+MCP protocol compliance (no interference with stdout)
+Performance timing for all operations
+
+# Complete TypeScript Types
+
+Full type definitions for all Directus entities
+Strong typing for API responses and configurations
+Type safety for all tool handlers and operations
+Interface definitions for extensibility
+
+# Extension Ready Architecture
+
+Clean separation of concerns between API client, WebSocket handler, and MCP server
+Modular design allowing easy addition of new tools
+Hook points for custom functionality
+Configurable retry and timeout settings
+
+# Full Directus API Coverage
+
+Schema Management: Collections, fields, relations with complete metadata
+Content Operations: CRUD with advanced filtering, pagination, bulk operations
+User/Role Management: Complete user lifecycle and permissions
+File Management: Upload, download, delete operations with form data handling
+Real-time Features: WebSocket subscriptions for live updates
+
+
 ## License
 
 MIT License - feel free to modify and distribute for your projects.
