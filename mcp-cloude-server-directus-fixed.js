@@ -231,7 +231,7 @@ interface QueryOptions {
 // ===== CONFIGURATION =====
 
 const config: DirectusConfig = {
-  url: process.env.DIRECTUS_URL || 'https://apidev.romanceinroom.com',
+  url: process.env.DIRECTUS_URL || 'https://local-mcp-server.dev',
   token: process.env.DIRECTUS_TOKEN || '',
   timeout: parseInt(process.env.DIRECTUS_TIMEOUT || '30000'),
   retries: parseInt(process.env.DIRECTUS_RETRIES || '3'),

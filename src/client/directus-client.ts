@@ -13,6 +13,8 @@ import {
   UploadOptions,
   UploadResult
 } from '../types/directus.js';
+import https from 'https';
+import fs from 'fs';
 
 export class DirectusClient {
   private axios: AxiosInstance;
@@ -28,17 +30,96 @@ export class DirectusClient {
       ...config
     };
 
+    // Create HTTPS agent if certificate configuration is provided
+    const httpsAgent = this.createHttpsAgent();
+
     this.axios = axios.create({
       baseURL: this.config.url,
       timeout: this.config.timeout,
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'Directus-MCP-Server/1.0.0'
-      }
+      },
+      ...(httpsAgent && { httpsAgent })
     });
 
     this.setupInterceptors();
     this.setupAuth();
+  }
+
+  private createHttpsAgent(): https.Agent | null {
+    if (!this.config.https) {
+      return null;
+    }
+
+    const httpsOptions: https.AgentOptions = {};
+
+    // Handle Certificate Authority (CA)
+    if (this.config.https.ca) {
+      if (typeof this.config.https.ca === 'string') {
+        // If it's a file path, read the certificate
+        if (fs.existsSync(this.config.https.ca)) {
+          httpsOptions.ca = fs.readFileSync(this.config.https.ca);
+          logger.info('Loaded CA certificate from file', { path: this.config.https.ca });
+        } else {
+          // Assume it's the certificate content itself
+          httpsOptions.ca = this.config.https.ca;
+          logger.info('Using provided CA certificate content');
+        }
+      } else {
+        httpsOptions.ca = this.config.https.ca;
+        logger.info('Using provided CA certificate buffer/array');
+      }
+    }
+
+    // Handle Client Certificate
+    if (this.config.https.cert) {
+      if (typeof this.config.https.cert === 'string' && fs.existsSync(this.config.https.cert)) {
+        httpsOptions.cert = fs.readFileSync(this.config.https.cert);
+        logger.info('Loaded client certificate from file', { path: this.config.https.cert });
+      } else {
+        httpsOptions.cert = this.config.https.cert;
+        logger.info('Using provided client certificate content');
+      }
+    }
+
+    // Handle Private Key
+    if (this.config.https.key) {
+      if (typeof this.config.https.key === 'string' && fs.existsSync(this.config.https.key)) {
+        httpsOptions.key = fs.readFileSync(this.config.https.key);
+        logger.info('Loaded private key from file', { path: this.config.https.key });
+      } else {
+        httpsOptions.key = this.config.https.key;
+        logger.info('Using provided private key content');
+      }
+    }
+
+    // Handle PFX/PKCS12
+    if (this.config.https.pfx) {
+      if (typeof this.config.https.pfx === 'string' && fs.existsSync(this.config.https.pfx)) {
+        httpsOptions.pfx = fs.readFileSync(this.config.https.pfx);
+        logger.info('Loaded PFX certificate from file', { path: this.config.https.pfx });
+      } else {
+        httpsOptions.pfx = this.config.https.pfx;
+        logger.info('Using provided PFX certificate content');
+      }
+    }
+
+    // Handle other HTTPS options
+    if (this.config.https.passphrase) {
+      httpsOptions.passphrase = this.config.https.passphrase;
+    }
+
+    if (this.config.https.rejectUnauthorized !== undefined) {
+      httpsOptions.rejectUnauthorized = this.config.https.rejectUnauthorized;
+    }
+
+    if (this.config.https.servername) {
+      httpsOptions.servername = this.config.https.servername;
+    }
+
+    logger.info('Created HTTPS agent with custom certificate configuration');
+    return new https.Agent(httpsOptions);
   }
 
   private setupAuth(): void {
@@ -477,12 +558,33 @@ export class DirectusClient {
     return params;
   }
 
-  // Health check
+  // Health check - try multiple endpoints as Directus versions may differ
   async ping(): Promise<boolean> {
+    const endpoints = ['/server/ping', '/server/health', '/utils/health', '/admin/server/health'];
+    
+    for (const endpoint of endpoints) {
+      try {
+        logger.info(`Attempting health check on ${endpoint}`);
+        await this.get(endpoint);
+        logger.info(`Health check successful on ${endpoint}`);
+        return true;
+      } catch (error) {
+        logger.warn(`Health check failed on ${endpoint}`, { 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        });
+      }
+    }
+    
+    // If all health endpoints fail, try a simple collections endpoint as fallback
     try {
-      await this.get('/server/ping');
+      logger.info('Attempting fallback health check via collections endpoint');
+      await this.get('/collections', { limit: 1 });
+      logger.info('Fallback health check successful');
       return true;
-    } catch {
+    } catch (error) {
+      logger.error('All health check attempts failed', { 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
       return false;
     }
   }

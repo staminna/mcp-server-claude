@@ -363,6 +363,16 @@ export interface DirectusConfig {
   maxRetryDelay?: number;
   websocket?: boolean;
   websocketUrl?: string;
+  // HTTPS Certificate Configuration
+  https?: {
+    ca?: string | Buffer | Array<string | Buffer>; // Certificate Authority
+    cert?: string | Buffer; // Client certificate
+    key?: string | Buffer; // Client private key
+    pfx?: string | Buffer; // PFX or PKCS12 encoded private key and certificate chain
+    passphrase?: string; // Passphrase for the private key or pfx
+    rejectUnauthorized?: boolean; // Whether to reject self-signed certificates (default: true)
+    servername?: string; // Server name for SNI (Server Name Indication)
+  };
 }
 
 // Query Options

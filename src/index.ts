@@ -18,13 +18,28 @@ import { DirectusConfig } from './types/directus.js';
 
 // Configuration - WebSocket disabled to reduce logging noise
 const config: DirectusConfig = {
-  url: process.env.DIRECTUS_URL || 'https://apidev.romanceinroom.com',
+  url: process.env.DIRECTUS_URL || 'https://local-mcp-server.dev',
   token: process.env.DIRECTUS_TOKEN!,
   timeout: parseInt(process.env.DIRECTUS_TIMEOUT || '30000'),
   retries: parseInt(process.env.DIRECTUS_RETRIES || '3'),
   retryDelay: parseInt(process.env.DIRECTUS_RETRY_DELAY || '1000'),
   maxRetryDelay: parseInt(process.env.DIRECTUS_MAX_RETRY_DELAY || '10000'),
-  websocket: false // Disabled to reduce logging noise
+  websocket: false, // Disabled to reduce logging noise
+  // HTTPS Certificate Configuration
+  https: (process.env.DIRECTUS_HTTPS_CA || 
+         process.env.DIRECTUS_HTTPS_CERT || 
+         process.env.DIRECTUS_HTTPS_KEY || 
+         process.env.DIRECTUS_HTTPS_PFX) ? {
+    ...(process.env.DIRECTUS_HTTPS_CA && { ca: process.env.DIRECTUS_HTTPS_CA }),
+    ...(process.env.DIRECTUS_HTTPS_CERT && { cert: process.env.DIRECTUS_HTTPS_CERT }),
+    ...(process.env.DIRECTUS_HTTPS_KEY && { key: process.env.DIRECTUS_HTTPS_KEY }),
+    ...(process.env.DIRECTUS_HTTPS_PFX && { pfx: process.env.DIRECTUS_HTTPS_PFX }),
+    ...(process.env.DIRECTUS_HTTPS_PASSPHRASE && { passphrase: process.env.DIRECTUS_HTTPS_PASSPHRASE }),
+    ...(process.env.DIRECTUS_HTTPS_REJECT_UNAUTHORIZED && { 
+      rejectUnauthorized: process.env.DIRECTUS_HTTPS_REJECT_UNAUTHORIZED === 'true' 
+    }),
+    ...(process.env.DIRECTUS_HTTPS_SERVERNAME && { servername: process.env.DIRECTUS_HTTPS_SERVERNAME })
+  } : undefined
 };
 
 if (!config.token) {
