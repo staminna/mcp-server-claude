@@ -54,7 +54,24 @@ npm init -y
 npm install @modelcontextprotocol/sdk dotenv
 ```
 
-### 3. Environment Setup
+### 3. Dart MCP Server Setup (Optional)
+
+For Dart and Flutter development support, install the Dart SDK:
+
+```bash
+# macOS with Homebrew
+brew install dart
+
+# Or download from https://dart.dev/get-dart
+# Verify installation
+dart --version  # Should show version 3.9.0 or later
+
+# Optional: Install Flutter SDK for full Flutter support
+brew install flutter
+flutter --version
+```
+
+### 4. Environment Setup
 
 Create a `.env` file in your project directory:
 

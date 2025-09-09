@@ -1,0 +1,19 @@
+{
+  "mcp": {
+    "servers": {
+      "directus-claude-server-fixed": {
+        "command": "node",
+        "args": ["/Users/jorgenunes/2025/keyprog/mcp-server-claude/claude-mcp-server-directus.ts"],
+        "env": {
+          "DIRECTUS_URL": "http://127.0.0.1:8065/",
+          "DIRECTUS_TOKEN": "RiLObhILNGCO5UBXaSkDSurMwwljGhuM"
+        }
+      },
+      "dart": {
+        "command": "dart",
+        "args": ["mcp-server", "--force-roots-fallback"],
+        "env": {}
+      }
+    }
+  }
+}

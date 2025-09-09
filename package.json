@@ -28,16 +28,16 @@
   "dependencies": {
     "@directus/sdk": "^20.0.3",
     "@modelcontextprotocol/sdk": "^1.17.4",
-    "axios": "^1.7.9",
+    "axios": "^1.11.0",
     "csv-parse": "^6.1.0",
-    "dotenv": "^16.4.7",
-    "form-data": "^4.0.1",
-    "ws": "^8.18.0"
+    "dotenv": "^16.6.1",
+    "form-data": "^4.0.4",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
-    "@types/form-data": "^2.5.0",
-    "@types/node": "^22.0.0",
-    "@types/ws": "^8.5.12",
+    "@types/form-data": "^2.5.2",
+    "@types/node": "^22.18.1",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
