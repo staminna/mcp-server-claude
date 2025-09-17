@@ -231,7 +231,7 @@ interface QueryOptions {
 // ===== CONFIGURATION =====
 
 const config: DirectusConfig = {
-  url: process.env.DIRECTUS_URL || 'https://local-mcp-server.dev',
+  url: process.env.DIRECTUS_URL || 'http://localhost:8065',
   token: process.env.DIRECTUS_TOKEN || '',
   timeout: parseInt(process.env.DIRECTUS_TIMEOUT || '30000'),
   retries: parseInt(process.env.DIRECTUS_RETRIES || '3'),
@@ -1047,6 +1047,28 @@ class DirectusMCPServer {
       case 'get_server_info':
         return this.handleGetServerInfo();
 
+      // E-commerce specific tools
+      case 'get_products':
+        return this.handleGetProducts(args);
+      case 'create_product':
+        return this.handleCreateProduct(args);
+      case 'update_product':
+        return this.handleUpdateProduct(args);
+      case 'get_orders':
+        return this.handleGetOrders(args);
+      case 'create_order':
+        return this.handleCreateOrder(args);
+      case 'get_customers':
+        return this.handleGetCustomers(args);
+      case 'create_customer':
+        return this.handleCreateCustomer(args);
+      case 'get_brands':
+        return this.handleGetBrands(args);
+      case 'get_categories':
+        return this.handleGetCategories(args);
+      case 'get_product_images':
+        return this.handleGetProductImages(args);
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -1166,9 +1188,233 @@ class DirectusMCPServer {
     }
   }
 
-  // Additional tool handlers would be implemented here...
-  // For brevity, I'm showing the pattern. The full implementation would include
-  // all the handlers from your original script, properly typed.
+  private async handleUnsubscribeRealtime(args: any): Promise<any> {
+    const { event, collection } = args;
+    const eventName = collection ? `${collection}.${event}` : event;
+    
+    if (this.websocket?.isConnected()) {
+      this.websocket.unsubscribe(eventName);
+      return {
+        content: [{
+          type: 'text',
+          text: `Unsubscribed from real-time updates for event: ${eventName}`
+        }]
+      };
+    } else {
+      return {
+        content: [{
+          type: 'text',
+          text: 'WebSocket not connected. Cannot unsubscribe from real-time updates.'
+        }]
+      };
+    }
+  }
+
+  private async handleGetProducts(args: any): Promise<any> {
+    const { limit = 25, offset = 0, filter = {}, search } = args;
+    
+    const products = await this.directus.getItems('products', {
+      limit,
+      offset,
+      filter: { ...filter, status: { _eq: 'published' } },
+      search,
+      fields: ['id', 'reference', 'name', 'name_en', 'description', 'description_en', 'price_without_discount', 'price_with_discount', 'stock', 'brand_id', 'primary_image_file']
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Found ${products.length} products:\n\n${products.map(p => 
+          `• ${p.name} (${p.reference}) - $${p.price_with_discount || p.price_without_discount} - Stock: ${p.stock}`
+        ).join('\n')}`
+      }]
+    };
+  }
+
+  private async handleCreateProduct(args: any): Promise<any> {
+    const { name, description, price_without_discount, stock = 0, reference, brand_id } = args;
+    
+    const product = await this.directus.createItem('products', {
+      name,
+      description,
+      price_without_discount,
+      stock,
+      reference,
+      brand_id,
+      status: 'draft'
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Product "${name}" created successfully with ID: ${product.id}`
+      }]
+    };
+  }
+
+  private async handleUpdateProduct(args: any): Promise<any> {
+    const { id, ...updates } = args;
+    
+    const product = await this.directus.updateItem('products', id, updates);
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Product "${product.name}" updated successfully`
+      }]
+    };
+  }
+
+  private async handleGetOrders(args: any): Promise<any> {
+    const { limit = 25, offset = 0, filter = {}, status } = args;
+    
+    const orders = await this.directus.getItems('orders', {
+      limit,
+      offset,
+      filter: status ? { ...filter, status: { _eq: status } } : filter,
+      fields: ['id', 'order_number', 'status', 'total', 'customer_id', 'created_at']
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Found ${orders.length} orders:\n\n${orders.map(o => 
+          `• Order #${o.order_number} - ${o.status} - $${o.total} - Customer: ${o.customer_id}`
+        ).join('\n')}`
+      }]
+    };
+  }
+
+  private async handleCreateOrder(args: any): Promise<any> {
+    const { customer_id, order_items, total } = args;
+    
+    // Generate order number
+    const orderNumber = `ORD-${Date.now()}`;
+    
+    const order = await this.directus.createItem('orders', {
+      order_number: orderNumber,
+      customer_id,
+      total,
+      status: 'pending'
+    });
+
+    // Create order items
+    if (order_items && Array.isArray(order_items)) {
+      for (const item of order_items) {
+        await this.directus.createItem('order_items', {
+          order_id: order.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: item.price
+        });
+      }
+    }
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Order #${orderNumber} created successfully with ${order_items?.length || 0} items`
+      }]
+    };
+  }
+
+  private async handleGetCustomers(args: any): Promise<any> {
+    const { limit = 25, offset = 0, filter = {}, search } = args;
+    
+    const customers = await this.directus.getItems('customers', {
+      limit,
+      offset,
+      filter: { ...filter, status: { _eq: 'active' } },
+      search,
+      fields: ['id', 'first_name', 'last_name', 'email', 'status']
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Found ${customers.length} customers:\n\n${customers.map(c => 
+          `• ${c.first_name} ${c.last_name} - ${c.email}`
+        ).join('\n')}`
+      }]
+    };
+  }
+
+  private async handleCreateCustomer(args: any): Promise<any> {
+    const { first_name, last_name, email } = args;
+    
+    const customer = await this.directus.createItem('customers', {
+      first_name,
+      last_name,
+      email,
+      status: 'active'
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Customer "${first_name} ${last_name}" created successfully with ID: ${customer.id}`
+      }]
+    };
+  }
+
+  private async handleGetBrands(args: any): Promise<any> {
+    const { limit = 25, offset = 0, filter = {} } = args;
+    
+    const brands = await this.directus.getItems('brands', {
+      limit,
+      offset,
+      filter: { ...filter, status: { _eq: 'active' } },
+      fields: ['id', 'name', 'status']
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Found ${brands.length} brands:\n\n${brands.map(b => 
+          `• ${b.name}`
+        ).join('\n')}`
+      }]
+    };
+  }
+
+  private async handleGetCategories(args: any): Promise<any> {
+    const { limit = 25, offset = 0, filter = {} } = args;
+    
+    const categories = await this.directus.getItems('categories', {
+      limit,
+      offset,
+      filter: { ...filter, status: { _eq: 'published' } },
+      fields: ['id', 'name', 'name_en', 'parent_id']
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Found ${categories.length} categories:\n\n${categories.map(c => 
+          `• ${c.name} (${c.name_en || 'No translation'})`
+        ).join('\n')}`
+      }]
+    };
+  }
+
+  private async handleGetProductImages(args: any): Promise<any> {
+    const { product_id, limit = 50 } = args;
+    
+    const images = await this.directus.getItems('product_images', {
+      limit,
+      filter: product_id ? { product_id: { _eq: product_id } } : {},
+      fields: ['id', 'title', 'description', 'sort', 'product_id']
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Found ${images.length} product images:\n\n${images.map(img => 
+          `• ${img.title || 'Untitled'} - Product: ${img.product_id}`
+        ).join('\n')}`
+      }]
+    };
+  }
 
   private async getPrompts(): Promise<any[]> {
     try {
@@ -1213,6 +1459,152 @@ class DirectusMCPServer {
             meta: { type: 'object', description: 'Collection metadata options' }
           },
           required: ['collection']
+        }
+      },
+      // E-commerce specific tools
+      {
+        name: 'get_products',
+        description: 'Get products from the products collection with filtering and pagination',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Number of products to return (default: 25)', default: 25 },
+            offset: { type: 'number', description: 'Offset for pagination', default: 0 },
+            filter: { type: 'object', description: 'Additional filters' },
+            search: { type: 'string', description: 'Search query' }
+          }
+        }
+      },
+      {
+        name: 'create_product',
+        description: 'Create a new product in the products collection',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Product name' },
+            description: { type: 'string', description: 'Product description' },
+            price_without_discount: { type: 'number', description: 'Base price' },
+            stock: { type: 'number', description: 'Stock quantity', default: 0 },
+            reference: { type: 'string', description: 'Product SKU/reference' },
+            brand_id: { type: 'number', description: 'Brand ID (optional)' }
+          },
+          required: ['name', 'price_without_discount']
+        }
+      },
+      {
+        name: 'update_product',
+        description: 'Update an existing product',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', description: 'Product ID' },
+            name: { type: 'string', description: 'Product name' },
+            description: { type: 'string', description: 'Product description' },
+            price_without_discount: { type: 'number', description: 'Base price' },
+            stock: { type: 'number', description: 'Stock quantity' },
+            reference: { type: 'string', description: 'Product SKU/reference' },
+            brand_id: { type: 'number', description: 'Brand ID' }
+          },
+          required: ['id']
+        }
+      },
+      {
+        name: 'get_orders',
+        description: 'Get orders from the orders collection',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Number of orders to return', default: 25 },
+            offset: { type: 'number', description: 'Offset for pagination', default: 0 },
+            filter: { type: 'object', description: 'Additional filters' },
+            status: { type: 'string', description: 'Order status filter' }
+          }
+        }
+      },
+      {
+        name: 'create_order',
+        description: 'Create a new order with order items',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            customer_id: { type: 'number', description: 'Customer ID' },
+            order_items: { 
+              type: 'array', 
+              description: 'Array of order items',
+              items: {
+                type: 'object',
+                properties: {
+                  product_id: { type: 'number', description: 'Product ID' },
+                  quantity: { type: 'number', description: 'Quantity' },
+                  price: { type: 'number', description: 'Price per item' }
+                },
+                required: ['product_id', 'quantity', 'price']
+              }
+            },
+            total: { type: 'number', description: 'Total order amount' }
+          },
+          required: ['customer_id', 'total']
+        }
+      },
+      {
+        name: 'get_customers',
+        description: 'Get customers from the customers collection',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Number of customers to return', default: 25 },
+            offset: { type: 'number', description: 'Offset for pagination', default: 0 },
+            filter: { type: 'object', description: 'Additional filters' },
+            search: { type: 'string', description: 'Search query' }
+          }
+        }
+      },
+      {
+        name: 'create_customer',
+        description: 'Create a new customer',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            first_name: { type: 'string', description: 'Customer first name' },
+            last_name: { type: 'string', description: 'Customer last name' },
+            email: { type: 'string', description: 'Customer email' }
+          },
+          required: ['first_name', 'last_name', 'email']
+        }
+      },
+      {
+        name: 'get_brands',
+        description: 'Get brands from the brands collection',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Number of brands to return', default: 25 },
+            offset: { type: 'number', description: 'Offset for pagination', default: 0 },
+            filter: { type: 'object', description: 'Additional filters' }
+          }
+        }
+      },
+      {
+        name: 'get_categories',
+        description: 'Get categories from the categories collection',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Number of categories to return', default: 25 },
+            offset: { type: 'number', description: 'Offset for pagination', default: 0 },
+            filter: { type: 'object', description: 'Additional filters' }
+          }
+        }
+      },
+      {
+        name: 'get_product_images',
+        description: 'Get product images from the product_images collection',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            product_id: { type: 'number', description: 'Filter by product ID' },
+            limit: { type: 'number', description: 'Number of images to return', default: 50 }
+          }
         }
       },
       // Add all other tool definitions...

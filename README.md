@@ -22,7 +22,7 @@ A robust Model Context Protocol (MCP) server for Directus, providing seamless in
 - **Prompt Library**: Organized prompt management for different AI workflows
 
 ### 🛒 E-commerce Features
-- **Product Sync**: Integration with external inventory APIs (Excisaty example included)
+- **Product Sync**: Integration with external inventory APIs
 - **Customer Management**: Access customer data and order information
 - **Inventory Updates**: Automated stock synchronization
 
@@ -54,7 +54,24 @@ npm init -y
 npm install @modelcontextprotocol/sdk dotenv
 ```
 
-### 3. Environment Setup
+### 3. Dart MCP Server Setup (Optional)
+
+For Dart and Flutter development support, install the Dart SDK:
+
+```bash
+# macOS with Homebrew
+brew install dart
+
+# Or download from https://dart.dev/get-dart
+# Verify installation
+dart --version  # Should show version 3.9.0 or later
+
+# Optional: Install Flutter SDK for full Flutter support
+brew install flutter
+flutter --version
+```
+
+### 4. Environment Setup
 
 Create a `.env` file in your project directory:
 
@@ -265,7 +282,7 @@ async function directusAPI(endpoint, options = {}) {
 ## Extending the Server
 
 ### Adding New APIs
-The server includes an example Excisaty API integration. Follow the same pattern:
+The server includes an example API integration. Follow the same pattern:
 
 ```javascript
 // Add API helper

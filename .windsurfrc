@@ -1,0 +1,22 @@
+{
+  "mcp": {
+    "servers": {
+      "directus-claude-server-fixed": {
+        "command": "node",
+        "args": ["/Users/jorgenunes/2026/mcp-server-claude/mcp-cloude-server-directus-fixed.js"],
+        "env": {
+          "DIRECTUS_URL": "https://local-mcp-server.dev",
+          "DIRECTUS_TOKEN": "your_DIRECTUS_TOKEN_here",
+          "DIRECTUS_HTTPS_CA": "/Users/jorgenunes/2026/DirectusRoom/certs/rootCA.pem",
+          "DIRECTUS_HTTPS_REJECT_UNAUTHORIZED": "false",
+          "DIRECTUS_HTTPS_SERVERNAME": "local-mcp-server.dev"
+        }
+      },
+      "dart": {
+        "command": "dart",
+        "args": ["mcp-server", "--force-roots-fallback"],
+        "env": {}
+      }
+    }
+  }
+}
