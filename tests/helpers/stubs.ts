@@ -6,10 +6,12 @@ import { vi, type Mock } from 'vitest';
 import type { DirectusClient } from '../../src/client/directus-client.js';
 import { envelope } from './fixtures.js';
 
-export type ClientStub = {
-  config: { url: string };
-  [method: string]: any;
-};
+// Typed as DirectusClient plus Mock methods. The runtime object also carries a
+// public config:{url} (file-tools reads client['config'].url), but config is
+// deliberately NOT in this type: DirectusClient declares it private, and
+// redeclaring it publicly would collapse the intersection to `never`.
+export type StubbedClient = DirectusClient & Record<StubMethod, Mock>;
+export type ClientStub = StubbedClient;
 
 const METHODS = [
   'get',
@@ -63,12 +65,12 @@ export type StubMethod = (typeof METHODS)[number];
  * empty Directus envelope by default; override per test with
  * stub.getItems.mockResolvedValue(envelope([...])).
  */
-export function makeClientStub(overrides: Partial<Record<StubMethod, Mock>> = {}): ClientStub & DirectusClient {
-  const stub: ClientStub = {
+export function makeClientStub(overrides: Partial<Record<StubMethod, Mock>> = {}): StubbedClient {
+  const stub: Record<string, unknown> = {
     config: { url: 'http://directus.test' },
   };
   for (const method of METHODS) {
     stub[method] = overrides[method] ?? vi.fn().mockResolvedValue(envelope([]));
   }
-  return stub as ClientStub & DirectusClient;
+  return stub as unknown as StubbedClient;
 }

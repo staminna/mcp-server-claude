@@ -4,6 +4,15 @@ Enhanced MCP (Model Context Protocol) server for Directus with TypeScript, WebSo
 
 [![npm version](https://badge.fury.io/js/%40staminna%2Fdirectus-mcp-server.svg)](https://www.npmjs.com/package/@staminna/directus-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/staminna/mcp-server-claude/actions/workflows/ci.yml/badge.svg)](https://github.com/staminna/mcp-server-claude/actions/workflows/ci.yml)
+
+### Test Coverage
+
+| Statements | Branches | Functions | Lines |
+|------------|----------|-----------|-------|
+| ![Statements](https://img.shields.io/badge/statements-98.37%25-brightgreen.svg?style=flat) | ![Branches](https://img.shields.io/badge/branches-95.05%25-brightgreen.svg?style=flat) | ![Functions](https://img.shields.io/badge/functions-96.61%25-brightgreen.svg?style=flat) | ![Lines](https://img.shields.io/badge/lines-98.38%25-brightgreen.svg?style=flat) |
+
+Coverage badges are generated from `coverage/coverage-summary.json` by `npm run badges` (no external service required). Run `npm run test:coverage` first.
 
 ## Features
 
@@ -44,6 +53,22 @@ npm run build
 | `DIRECTUS_RESOURCES_ENABLED` | No | Enable resources feature (`true`/`false`) |
 | `DIRECTUS_RESOURCES_EXCLUDE_SYSTEM` | No | Exclude system collections from resources (`true`/`false`) |
 | `NODE_ENV` | No | Environment mode (`development`/`production`) |
+
+---
+
+## Authentication — no OAuth required
+
+This server uses a **static Directus access token** (`DIRECTUS_TOKEN`) and runs over **stdio transport**. OAuth is *not* required, by design:
+
+- The MCP specification only defines OAuth 2.1 authorization for **HTTP-based transports**. For stdio servers the spec says implementations *"SHOULD NOT"* use it and should instead retrieve credentials from the environment — exactly what this server does.
+- **Directus 12 fully supports static access tokens.** The OAuth 2.1 support Directus added (mid-2026) applies to its own built-in *remote* MCP endpoint and is optional; there are no breaking changes to token authentication in Directus 12 (see `DIRECTUS_V12_BREAKING_CHANGES.md`).
+- OAuth only becomes relevant if you expose an MCP server **remotely over HTTP** (Streamable HTTP/SSE). As a local stdio subprocess of Claude Desktop, Claude Code, Cursor, etc., this server needs only the env token.
+
+Generate the token in Directus under **User Settings → Token** (use a dedicated user with least-privilege role for production).
+
+### Using with a Claude subscription (Max/Pro) — no API key needed
+
+MCP servers do not consume Anthropic API tokens themselves; only the AI client's model calls do. If you use this server inside **Claude Code or Claude Desktop with a Claude Max (or Pro) subscription**, the model usage is covered by the subscription — you do **not** need an Anthropic API key. An API key is only required when driving Claude programmatically via the Claude API (e.g. the remote MCP connector).
 
 ---
 
@@ -345,6 +370,29 @@ npm run typecheck
 # Lint
 npm run lint
 ```
+
+### Testing
+
+The project ships unit, integration and end-to-end suites (vitest). Coverage thresholds (90% statements/lines/functions, 85% branches) are enforced — the test run fails below them.
+
+```bash
+# Unit + integration tests
+npm test
+
+# With coverage report (coverage/ — text, html, lcov, json-summary)
+npm run test:coverage
+
+# End-to-end: builds, then spawns the real server over stdio against a mock Directus
+npm run test:e2e
+
+# Everything
+npm run test:all
+
+# Refresh the README coverage badges from the last coverage run
+npm run badges
+```
+
+The e2e suite uses the official MCP SDK client (`StdioClientTransport`) to spawn `dist/index.js` as a subprocess, talking to an in-process mock Directus on an ephemeral port — no real Directus instance or network access needed.
 
 ---
 

@@ -2,6 +2,7 @@
   "name": "@staminna/directus-mcp-server",
   "version": "12.0.0",
   "description": "Enhanced MCP server for Directus with TypeScript, WebSocket, and full API coverage",
+  "mcpName": "io.github.staminna/directus-mcp-server",
   "main": "dist/lib.js",
   "types": "dist/lib.d.ts",
   "type": "module",
@@ -44,6 +45,7 @@
   "keywords": [
     "directus",
     "mcp",
+    "mcp-server",
     "model-context-protocol",
     "typescript",
     "websocket",
