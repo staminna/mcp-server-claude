@@ -15,6 +15,16 @@ export { DiagnosticTools } from './tools/diagnostic-tools.js';
 // Utilities
 export { logger, Logger } from './utils/logger.js';
 
+// Server factory (testable wiring of the MCP server)
+export {
+  loadConfigFromEnv,
+  createDeps,
+  createHandlers,
+  createServer,
+  TOOL_DEFINITIONS
+} from './server.js';
+export type { ServerDeps } from './server.js';
+
 // Types
 export * from './types/directus.js';
 
