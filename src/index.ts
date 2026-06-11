@@ -3,7 +3,14 @@
 import 'dotenv/config';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { 
+  CallToolRequestSchema, 
+  ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema
+} from '@modelcontextprotocol/sdk/types.js';
 
 // Import enhanced components
 import { DirectusClient } from './client/directus-client.js';
@@ -18,8 +25,8 @@ import { DirectusConfig } from './types/directus.js';
 
 // Configuration - WebSocket disabled to reduce logging noise
 const config: DirectusConfig = {
-  url: process.env.DIRECTUS_URL || 'https://local-mcp-server.dev',
-  token: process.env.DIRECTUS_TOKEN!,
+  url: process.env.DIRECTUS_URL || 'http://localhost:8065',
+  token: process.env.DIRECTUS_TOKEN || process.env.DIRECTUS_TOKEN!,
   timeout: parseInt(process.env.DIRECTUS_TIMEOUT || '30000'),
   retries: parseInt(process.env.DIRECTUS_RETRIES || '3'),
   retryDelay: parseInt(process.env.DIRECTUS_RETRY_DELAY || '1000'),
@@ -43,9 +50,16 @@ const config: DirectusConfig = {
 };
 
 if (!config.token) {
-  logger.error('DIRECTUS_TOKEN environment variable is required');
+  logger.error('DIRECTUS_TOKEN or DIRECTUS_TOKEN environment variable is required');
   process.exit(1);
 }
+
+// Debug logging
+logger.info('Configuration loaded', {
+  url: config.url,
+  tokenPresent: !!config.token,
+  tokenLength: config.token?.length || 0
+});
 
 // Initialize clients and tools
 const directusClient = new DirectusClient(config);
@@ -65,6 +79,8 @@ const server = new Server(
   {
     capabilities: {
       tools: {},
+      prompts: {},
+      resources: {},
     },
   }
 );
@@ -405,6 +421,107 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             sort: { type: 'array', items: { type: 'string' }, description: 'Sort fields' },
             fields: { type: 'array', items: { type: 'string' }, description: 'Fields to return' },
             search: { type: 'string', description: 'Search query' },
+            status: { type: 'string', enum: ['active', 'inactive'], description: 'Filter by flow status' },
+          },
+        },
+      },
+      {
+        name: 'get_flow',
+        description: 'Get a specific flow by ID with optional operations',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Flow ID' },
+            include_operations: { type: 'boolean', description: 'Include flow operations in response' },
+          },
+          required: ['id'],
+        },
+      },
+      {
+        name: 'create_flow',
+        description: 'Create a new automation flow',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Flow name' },
+            status: { type: 'string', enum: ['active', 'inactive'], description: 'Flow status (default: active)' },
+            trigger: { type: 'string', description: 'Trigger type (e.g., manual, schedule, event, webhook)' },
+            description: { type: 'string', description: 'Flow description' },
+            options: { type: 'object', description: 'Trigger-specific options' },
+            operations: {
+              type: 'array',
+              description: 'Initial operations to create with the flow',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Operation name' },
+                  key: { type: 'string', description: 'Operation key (unique identifier)' },
+                  type: { type: 'string', description: 'Operation type' },
+                  position_x: { type: 'number', description: 'X position in flow editor' },
+                  position_y: { type: 'number', description: 'Y position in flow editor' },
+                  options: { type: 'object', description: 'Operation-specific options' },
+                },
+                required: ['key', 'type', 'position_x', 'position_y'],
+              },
+            },
+          },
+          required: ['name'],
+        },
+      },
+      {
+        name: 'update_flow',
+        description: 'Update an existing flow',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Flow ID' },
+            data: {
+              type: 'object',
+              description: 'Flow data to update',
+              properties: {
+                name: { type: 'string', description: 'Flow name' },
+                status: { type: 'string', enum: ['active', 'inactive'], description: 'Flow status' },
+                trigger: { type: 'string', description: 'Trigger type' },
+                description: { type: 'string', description: 'Flow description' },
+                options: { type: 'object', description: 'Trigger-specific options' },
+              },
+            },
+          },
+          required: ['id', 'data'],
+        },
+      },
+      {
+        name: 'delete_flow',
+        description: 'Delete a flow and all its operations (requires confirmation)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Flow ID' },
+            confirm: { type: 'boolean', description: 'Confirm deletion' },
+          },
+          required: ['id'],
+        },
+      },
+      {
+        name: 'trigger_flow',
+        description: 'Manually trigger a flow execution',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Flow ID' },
+            data: { type: 'object', description: 'Data to pass to the flow' },
+          },
+          required: ['id'],
+        },
+      },
+      {
+        name: 'get_operations',
+        description: 'Get flow operations with optional filtering by flow',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            flow_id: { type: 'string', description: 'Filter operations by flow ID' },
+            limit: { type: 'number', description: 'Number of operations to return (default: 50)' },
           },
         },
       },
@@ -478,6 +595,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // Flow Management Tools
     } else if (name === 'get_flows') {
       result = await flowTools.getFlows(args);
+    } else if (name === 'get_flow') {
+      result = await flowTools.getFlow(args as any);
+    } else if (name === 'create_flow') {
+      result = await flowTools.createFlow(args as any);
+    } else if (name === 'update_flow') {
+      result = await flowTools.updateFlow(args as any);
+    } else if (name === 'delete_flow') {
+      result = await flowTools.deleteFlow(args as any);
+    } else if (name === 'trigger_flow') {
+      result = await flowTools.triggerFlow(args as any);
+    } else if (name === 'get_operations') {
+      result = await flowTools.getOperations(args as any);
 
     } else {
       throw new Error(`Unknown tool: ${name}`);
@@ -506,6 +635,197 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       ],
       isError: true,
     };
+  }
+});
+
+// Handle prompts/list requests
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+  try {
+    const promptsEnabled = process.env.DIRECTUS_PROMPTS_COLLECTION_ENABLED === 'true';
+    const promptsCollection = process.env.DIRECTUS_PROMPTS_COLLECTION || 'ai_prompts';
+    
+    if (!promptsEnabled) {
+      logger.info('Prompts feature disabled. Set DIRECTUS_PROMPTS_COLLECTION_ENABLED=true to enable');
+      return { prompts: [] };
+    }
+    
+    // Fetch prompts from Directus
+    const response = await directusClient.getItems(promptsCollection, {
+      filter: { status: { _eq: 'published' } },
+      fields: ['id', 'name', 'description', 'arguments'],
+      limit: -1 // Get all prompts
+    });
+    
+    const prompts = (response.data || []).map((prompt: any) => ({
+      name: prompt.name || prompt.id,
+      description: prompt.description || '',
+      arguments: prompt.arguments ? JSON.parse(prompt.arguments) : []
+    }));
+    
+    logger.info(`Loaded ${prompts.length} prompts from ${promptsCollection}`);
+    
+    return { prompts };
+  } catch (error) {
+    logger.error('Failed to load prompts', { error: error instanceof Error ? error.message : 'Unknown error' });
+    return { prompts: [] };
+  }
+});
+
+// Handle prompts/get requests
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  try {
+    const promptsEnabled = process.env.DIRECTUS_PROMPTS_COLLECTION_ENABLED === 'true';
+    const promptsCollection = process.env.DIRECTUS_PROMPTS_COLLECTION || 'ai_prompts';
+    
+    if (!promptsEnabled) {
+      throw new Error('Prompts feature is disabled. Set DIRECTUS_PROMPTS_COLLECTION_ENABLED=true to enable');
+    }
+    
+    const { name, arguments: args } = request.params;
+    
+    // Fetch specific prompt by name
+    const response = await directusClient.getItems(promptsCollection, {
+      filter: { 
+        name: { _eq: name },
+        status: { _eq: 'published' }
+      },
+      limit: 1
+    });
+    
+    if (!response.data || response.data.length === 0) {
+      throw new Error(`Prompt not found: ${name}`);
+    }
+    
+    const prompt = response.data[0];
+    
+    // Parse and process prompt template
+    let promptText = prompt.content || prompt.template || '';
+    
+    // Replace argument placeholders if provided
+    if (args && prompt.arguments) {
+      const promptArgs = typeof prompt.arguments === 'string' 
+        ? JSON.parse(prompt.arguments) 
+        : prompt.arguments;
+      
+      for (const arg of promptArgs) {
+        if (args[arg.name] !== undefined) {
+          const placeholder = new RegExp(`\\{\\{${arg.name}\\}\\}`, 'g');
+          promptText = promptText.replace(placeholder, String(args[arg.name]));
+        }
+      }
+    }
+    
+    logger.info(`Retrieved prompt: ${name}`);
+    
+    return {
+      description: prompt.description || '',
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: promptText
+          }
+        }
+      ]
+    };
+  } catch (error) {
+    logger.error('Failed to get prompt', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      name: request.params.name
+    });
+    throw error;
+  }
+});
+
+// Handle resources/list requests  
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  try {
+    const resourcesEnabled = process.env.DIRECTUS_RESOURCES_ENABLED === 'true';
+    
+    if (!resourcesEnabled) {
+      logger.info('Resources feature disabled. Set DIRECTUS_RESOURCES_ENABLED=true to enable');
+      return { resources: [] };
+    }
+    
+    // Get all collections
+    const collectionsResponse = await directusClient.getCollections();
+    const collections = collectionsResponse.data || [];
+    
+    // Exclude system collections by default
+    const excludeSystem = process.env.DIRECTUS_RESOURCES_EXCLUDE_SYSTEM !== 'false';
+    
+    const resources = collections
+      .filter((collection: any) => {
+        if (excludeSystem && collection.collection?.startsWith('directus_')) {
+          return false;
+        }
+        return collection.collection && collection.schema;
+      })
+      .map((collection: any) => ({
+        uri: `directus://collection/${collection.collection}`,
+        name: collection.meta?.name || collection.collection,
+        description: collection.meta?.note || `Directus collection: ${collection.collection}`,
+        mimeType: 'application/json'
+      }));
+    
+    logger.info(`Exposed ${resources.length} collections as resources`);
+    
+    return { resources };
+  } catch (error) {
+    logger.error('Failed to list resources', { error: error instanceof Error ? error.message : 'Unknown error' });
+    return { resources: [] };
+  }
+});
+
+// Handle resources/read requests
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  try {
+    const resourcesEnabled = process.env.DIRECTUS_RESOURCES_ENABLED === 'true';
+    
+    if (!resourcesEnabled) {
+      throw new Error('Resources feature is disabled. Set DIRECTUS_RESOURCES_ENABLED=true to enable');
+    }
+    
+    const { uri } = request.params;
+    
+    // Parse URI: directus://collection/{collection_name}
+    const match = uri.match(/^directus:\/\/collection\/(.+)$/);
+    if (!match) {
+      throw new Error(`Invalid resource URI: ${uri}. Expected format: directus://collection/{collection_name}`);
+    }
+    
+    const collection = match[1];
+    
+    // Get collection schema and sample data
+    const [schemaResponse, itemsResponse] = await Promise.all([
+      directusClient.getCollection(collection),
+      directusClient.getItems(collection, { limit: 10 })
+    ]);
+    
+    const resource = {
+      schema: schemaResponse.data,
+      items: itemsResponse.data || [],
+      meta: itemsResponse.meta || {}
+    };
+    
+    logger.info(`Retrieved resource: ${collection}`);
+    
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify(resource, null, 2)
+        }
+      ]
+    };
+  } catch (error) {
+    logger.error('Failed to read resource', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      uri: request.params.uri
+    });
+    throw error;
   }
 });
 

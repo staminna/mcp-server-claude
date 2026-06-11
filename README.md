@@ -1,380 +1,374 @@
-# Directus MCP Server
+# @staminna/directus-mcp-server
 
-A robust Model Context Protocol (MCP) server for Directus, providing seamless integration between Claude AI and your Directus CMS. This custom implementation offers more features and better reliability than the official Directus MCP package.
+Enhanced MCP (Model Context Protocol) server for Directus with TypeScript, WebSocket support, and full API coverage.
+
+[![npm version](https://badge.fury.io/js/%40staminna%2Fdirectus-mcp-server.svg)](https://www.npmjs.com/package/@staminna/directus-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
-### 📊 Data Access
-- **Collection Management**: List and access all Directus collections
-- **Item Retrieval**: Fetch items from any collection with customizable limits
-- **Smart Filtering**: Built-in support for published content filtering
-- **Type Safety**: Proper error handling and data validation
-
-### 🛠️ Schema Management
-- **Collection Creation**: Create new collections programmatically
-- **Field Management**: Add/remove fields with proper type definitions
-- **Relationship Builder**: Create complex many-to-many, one-to-many relationships
-- **Schema Inspection**: View current database schema and relationships
-
-### 🤖 AI Prompts Integration
-- **Dynamic Prompts**: Store and manage AI prompts in Directus
-- **Variable Substitution**: Mustache-style template variables (`{{variable}}`)
-- **Prompt Library**: Organized prompt management for different AI workflows
-
-### 🛒 E-commerce Features
-- **Product Sync**: Integration with external inventory APIs
-- **Customer Management**: Access customer data and order information
-- **Inventory Updates**: Automated stock synchronization
-
-## Prerequisites
-
-- **Node.js**: v18+ (v22+ recommended for native fetch support)
-- **Directus**: v10+ instance with API access
-- **Claude**: Access to Claude with MCP support (Claude Desktop, Cursor, etc.)
+- 🔐 **Full Authentication** - Token-based authentication with Directus
+- 📦 **Collection Management** - CRUD operations for collections and items
+- 📁 **File Operations** - Upload, download, and manage files
+- 🔄 **Flow Management** - Create, update, trigger, and manage Directus Flows
+- 👥 **User Management** - User CRUD and role management
+- 🔍 **Schema Tools** - Analyze and validate collection schemas
+- 🩺 **Diagnostics** - Collection access diagnostics and troubleshooting
+- ⚡ **WebSocket Support** - Real-time subscriptions (coming soon)
 
 ## Installation
 
-### 1. Clone or Download
-
-Save the MCP server code as `directus-mcp-server.js`:
+### Via npm (Recommended)
 
 ```bash
-# Create project directory
-mkdir directus-mcp-server
-cd directus-mcp-server
-
-# Copy the server code (provided separately)
-# Save as: directus-mcp-server.js
+npm install -g @staminna/directus-mcp-server
 ```
 
-### 2. Install Dependencies
+### From Source
 
 ```bash
-npm init -y
-npm install @modelcontextprotocol/sdk dotenv
+git clone https://github.com/staminna/mcp-server-claude.git
+cd mcp-server-claude
+npm install
+npm run build
 ```
 
-### 3. Dart MCP Server Setup (Optional)
+## Environment Variables
 
-For Dart and Flutter development support, install the Dart SDK:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DIRECTUS_URL` | Yes | Your Directus instance URL (e.g., `http://localhost:8065`) |
+| `DIRECTUS_TOKEN` | Yes | Static API token with appropriate permissions |
+| `DIRECTUS_PROMPTS_COLLECTION_ENABLED` | No | Enable AI prompts collection (`true`/`false`) |
+| `DIRECTUS_PROMPTS_COLLECTION` | No | Collection name for AI prompts (default: `ai_prompts`) |
+| `DIRECTUS_RESOURCES_ENABLED` | No | Enable resources feature (`true`/`false`) |
+| `DIRECTUS_RESOURCES_EXCLUDE_SYSTEM` | No | Exclude system collections from resources (`true`/`false`) |
+| `NODE_ENV` | No | Environment mode (`development`/`production`) |
 
-```bash
-# macOS with Homebrew
-brew install dart
+---
 
-# Or download from https://dart.dev/get-dart
-# Verify installation
-dart --version  # Should show version 3.9.0 or later
+## IDE Configuration
 
-# Optional: Install Flutter SDK for full Flutter support
-brew install flutter
-flutter --version
+### 🟣 Cursor
+
+1. Open Cursor Settings: `Cmd+,` (macOS) or `Ctrl+,` (Windows/Linux)
+2. Search for **"MCP"** or navigate to **Features → MCP Servers**
+3. Click **"Edit in settings.json"**
+4. Add the following configuration:
+
+```json
+{
+  "mcpServers": {
+    "directus": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@staminna/directus-mcp-server"
+      ],
+      "env": {
+        "DIRECTUS_URL": "http://localhost:8065",
+        "DIRECTUS_TOKEN": "your-directus-token-here"
+      }
+    }
+  }
+}
 ```
 
-### 4. Environment Setup
-
-Create a `.env` file in your project directory:
-
-```env
-DIRECTUS_URL=https://your-directus-instance.com
-DIRECTUS_TOKEN=your-directus-api-token
-```
-
-**Important**: Generate a Directus API token with appropriate permissions:
-- Read access to collections you want to query
-- Admin access for schema management features
-- Write access if using sync features
-
-## Configuration
-
-### For Claude Desktop
-
-Edit your Claude Desktop configuration file:
-
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%/Claude/claude_desktop_config.json`
+**Or if installed locally:**
 
 ```json
 {
   "mcpServers": {
     "directus": {
       "command": "node",
-      "args": ["/path/to/your/directus-mcp-server.js"],
+      "args": [
+        "/path/to/mcp-server-claude/dist/index.js"
+      ],
       "env": {
-        "DIRECTUS_URL": "https://your-directus-instance.com",
-        "DIRECTUS_TOKEN": "your-api-token-here"
+        "DIRECTUS_URL": "http://localhost:8065",
+        "DIRECTUS_TOKEN": "your-directus-token-here"
       }
     }
   }
 }
 ```
 
-### For Cursor IDE
+5. Save the file and restart Cursor
 
-Edit `.cursor/mcp.json` in your project:
+---
+
+### 🌊 Windsurf
+
+1. Open Windsurf Settings: `Cmd+,` (macOS) or `Ctrl+,` (Windows/Linux)
+2. Search for **"MCP Servers"**
+3. Click **"Edit in settings.json"**
+4. Add the following configuration:
 
 ```json
 {
   "mcpServers": {
     "directus": {
-      "command": "node", 
-      "args": ["./directus-mcp-server.js"],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@staminna/directus-mcp-server"
+      ],
       "env": {
-        "DIRECTUS_URL": "https://your-directus-instance.com",
-        "DIRECTUS_TOKEN": "your-api-token-here"
+        "DIRECTUS_URL": "http://localhost:8065",
+        "DIRECTUS_TOKEN": "your-directus-token-here",
+        "DIRECTUS_PROMPTS_COLLECTION_ENABLED": "true",
+        "DIRECTUS_PROMPTS_COLLECTION": "ai_prompts",
+        "DIRECTUS_RESOURCES_ENABLED": "true",
+        "DIRECTUS_RESOURCES_EXCLUDE_SYSTEM": "true",
+        "NODE_ENV": "production"
       }
     }
   }
 }
 ```
 
-## Available Tools
+**Or if installed locally:**
 
-### Data Access Tools
-
-#### `list_collections`
-Lists all available Directus collections (excluding system collections).
-
-```
-Example: "Show me all available collections"
-```
-
-#### `get_collection_items`
-Retrieves items from a specific collection.
-
-```
-Parameters:
-- collection: Collection name (required)
-- limit: Number of items to return (default: 10)
-
-Example: "Get the first 5 products from the products collection"
-```
-
-#### `get_products` / `get_customers` / `get_orders`
-Specialized shortcuts for common e-commerce collections.
-
-### Schema Management Tools
-
-#### `create_collection`
-Creates a new collection with metadata options.
-
-```
-Parameters:
-- collection: Collection name (required)
-- meta: Metadata options (optional)
-
-Example: "Create a new collection called 'testimonials'"
-```
-
-#### `create_field` 
-Adds a new field to an existing collection.
-
-```
-Parameters:
-- collection: Target collection (required)
-- field: Field name (required) 
-- type: Field type (required) - string, integer, text, boolean, datetime, etc.
-- meta: Field options (optional)
-
-Example: "Add a 'featured' boolean field to the products collection"
-```
-
-#### `create_relation`
-Creates relationships between collections.
-
-```
-Parameters:
-- collection: Source collection (required)
-- field: Field name (required)
-- related_collection: Target collection (required)
-- relation_type: o2m, m2o, or m2m (required)
-- junction_field: For m2m relationships (conditional)
-
-Example: "Create a many-to-many relationship between products and categories"
-```
-
-### AI Prompts System
-
-The server includes a built-in prompts system for managing AI workflows:
-
-#### Requirements
-Create a `prompts` collection in Directus with these fields:
-- `name` (string): Unique prompt identifier
-- `description` (text): Prompt description
-- `system_prompt` (text): System-level prompt content
-- `messages` (JSON): Conversation messages array
-- `status` (string): published/draft status
-
-#### Usage
-```
-"List available AI prompts"
-"Use the 'product-description' prompt with product_name='Wireless Headphones'"
-```
-
-## Troubleshooting
-
-### Common Issues
-
-#### "fetch is not defined" Error
-- **Cause**: Node.js version < 18
-- **Solution**: Upgrade to Node.js v18+ or add fetch polyfill:
-  ```javascript
-  import fetch from 'node-fetch';
-  globalThis.fetch = fetch;
-  ```
-
-#### Empty Results Despite Having Data
-- **Cause**: API token permissions
-- **Solution**: Ensure your Directus API token has read permissions for the collections
-- **Check**: Test API access directly: `curl -H "Authorization: Bearer YOUR_TOKEN" https://your-directus.com/items/your-collection`
-
-#### Connection Not Working
-- **Cause**: Configuration file issues
-- **Solution**: 
-  1. Restart Claude Desktop/Cursor after config changes
-  2. Verify file paths are absolute
-  3. Check environment variables are set correctly
-
-#### Schema Operations Failing
-- **Cause**: Insufficient permissions
-- **Solution**: Use an admin-level API token for schema management operations
-
-### Debug Mode
-
-Add debug logging to the `directusAPI` function:
-
-```javascript
-async function directusAPI(endpoint, options = {}) {
-  const url = `${DIRECTUS_URL}${endpoint}`;
-  console.error(`🔍 API Call: ${url}`);
-  console.error(`🔑 Token present: ${DIRECTUS_TOKEN ? 'YES' : 'NO'}`);
-  
-  // ... rest of function
-  
-  console.error(`📡 Response: ${response.status} ${response.statusText}`);
-  console.error(`📊 Data items: ${data.data ? data.data.length : 'no data array'}`);
-}
-```
-
-## Example Workflows
-
-### Content Management
-```
-"List all blog posts from the posts collection"
-"Create a new 'testimonials' collection with name, content, and author fields"
-"Show me the database schema for products and categories"
-```
-
-### E-commerce Operations  
-```
-"Get the latest 10 customer orders"
-"Create a relationship between products and categories"
-"Sync product inventory from external API"
-```
-
-### AI Prompt Management
-```
-"Show me all available AI prompts"
-"Use the product-description prompt with product_name='Gaming Mouse'"
-"Create a new prompt for customer service responses"
-```
-
-## Extending the Server
-
-### Adding New APIs
-The server includes an example API integration. Follow the same pattern:
-
-```javascript
-// Add API helper
-async function yourAPI(endpoint, options = {}) {
-  const API_URL = process.env.YOUR_API_URL;
-  const API_KEY = process.env.YOUR_API_KEY;
-  
-  // Implementation
-}
-
-// Add tool handlers
-async function handleYourTools(toolName, args) {
-  switch (toolName) {
-    case 'your_tool':
-      // Implementation
-      break;
+```json
+{
+  "mcpServers": {
+    "directus": {
+      "command": "node",
+      "args": [
+        "/path/to/mcp-server-claude/dist/index.js"
+      ],
+      "env": {
+        "DIRECTUS_URL": "http://localhost:8065",
+        "DIRECTUS_TOKEN": "your-directus-token-here"
+      }
+    }
   }
 }
-
-// Register tools in ListToolsRequestSchema handler
 ```
 
-### Custom Collection Types
-Override the default collection filtering by modifying the `getCollections()` function to include/exclude specific collections.
-
-## Contributing
-
-This MCP server was developed to address limitations in the official Directus MCP package. Contributions are welcome:
-
-1. **Bug Reports**: Issues with specific Directus versions or configurations
-2. **Feature Requests**: Additional Directus API endpoints or tools
-3. **Extensions**: Integration with other headless CMS or e-commerce platforms
-4. **Documentation**: Improvements to setup guides or troubleshooting
-
-# Axios with Comprehensive Error Handling
-
-Replaced native fetch with axios for better error handling
-Added retry logic with exponential backoff
-Comprehensive error parsing for Directus-specific errors
-Request/response interceptors for detailed logging
-
-# Real-time WebSocket Support
-
-Auto-reconnecting WebSocket with heartbeat mechanism
-Event subscription management
-Graceful failure handling when WebSocket unavailable
-Real-time update notifications
-
-# STDIO Compliant Logging
-
-Logger class that uses stderr instead of stdout
-Structured logging with context and timing
-MCP protocol compliance (no interference with stdout)
-Performance timing for all operations
-
-# Complete TypeScript Types
-
-Full type definitions for all Directus entities
-Strong typing for API responses and configurations
-Type safety for all tool handlers and operations
-Interface definitions for extensibility
-
-# Extension Ready Architecture
-
-Clean separation of concerns between API client, WebSocket handler, and MCP server
-Modular design allowing easy addition of new tools
-Hook points for custom functionality
-Configurable retry and timeout settings
-
-# Full Directus API Coverage
-
-Schema Management: Collections, fields, relations with complete metadata
-Content Operations: CRUD with advanced filtering, pagination, bulk operations
-User/Role Management: Complete user lifecycle and permissions
-File Management: Upload, download, delete operations with form data handling
-Real-time Features: WebSocket subscriptions for live updates
-
-
-## License
-
-MIT License - feel free to modify and distribute for your projects.
-
-## Support
-
-For support:
-1. Check the troubleshooting section above
-2. Verify your Directus API token permissions
-3. Test API connectivity outside of MCP first
-4. Enable debug logging to trace issues
+5. Save the file
+6. **Quit Windsurf completely** (`Cmd+Q` or `Ctrl+Q`)
+7. Reopen Windsurf and wait ~10 seconds for MCP to initialize
 
 ---
 
-**Built for the Directus community** 🚀
+### 🤖 Claude Desktop
 
-This custom MCP server provides a more reliable and feature-rich alternative to the official package, with better error handling, more tools, and extensible architecture for your specific needs.
+1. Locate your Claude Desktop config file:
+   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+   - **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+2. Create or edit the config file:
+
+```json
+{
+  "mcpServers": {
+    "directus": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@staminna/directus-mcp-server"
+      ],
+      "env": {
+        "DIRECTUS_URL": "http://localhost:8065",
+        "DIRECTUS_TOKEN": "your-directus-token-here"
+      }
+    }
+  }
+}
+```
+
+**Or if installed locally:**
+
+```json
+{
+  "mcpServers": {
+    "directus": {
+      "command": "node",
+      "args": [
+        "/path/to/mcp-server-claude/dist/index.js"
+      ],
+      "env": {
+        "DIRECTUS_URL": "http://localhost:8065",
+        "DIRECTUS_TOKEN": "your-directus-token-here"
+      }
+    }
+  }
+}
+```
+
+3. Save the file and restart Claude Desktop
+
+---
+
+### 🔮 Claude.ai (Web with MCP)
+
+For Claude.ai web interface with MCP support:
+
+1. Navigate to Claude.ai settings
+2. Find the MCP configuration section
+3. Add a new MCP server with:
+
+```json
+{
+  "name": "directus",
+  "command": "npx",
+  "args": ["-y", "@staminna/directus-mcp-server"],
+  "env": {
+    "DIRECTUS_URL": "http://localhost:8065",
+    "DIRECTUS_TOKEN": "your-directus-token-here"
+  }
+}
+```
+
+> **Note**: Claude.ai MCP support may require a Pro subscription and specific browser extensions.
+
+---
+
+## Available Tools
+
+### Collection Management
+| Tool | Description |
+|------|-------------|
+| `list_collections` | List all collections in Directus |
+| `get_collection_schema` | Get schema for a specific collection |
+| `get_collection_items` | Get items from a collection with filtering |
+| `create_collection` | Create a new collection |
+| `create_item` | Create a new item in a collection |
+| `update_item` | Update an existing item |
+| `delete_items` | Delete items from a collection |
+| `bulk_operations` | Execute bulk create, update, delete |
+
+### Schema & Fields
+| Tool | Description |
+|------|-------------|
+| `create_field` | Create a new field in a collection |
+| `update_field` | Update an existing field |
+| `delete_field` | Delete a field from a collection |
+| `create_relationship` | Create relationships (O2O, O2M, M2O, M2M, M2A) |
+| `analyze_collection_schema` | Analyze schema with relationship mapping |
+| `validate_collection_schema` | Validate schema and relationships |
+| `analyze_relationships` | Analyze relationships across collections |
+
+### Flow Management
+| Tool | Description |
+|------|-------------|
+| `get_flows` | Get all flows with optional filtering |
+| `get_flow` | Get a specific flow by ID |
+| `create_flow` | Create a new automation flow |
+| `update_flow` | Update an existing flow |
+| `delete_flow` | Delete a flow |
+| `trigger_flow` | Manually trigger a flow |
+| `get_operations` | Get flow operations |
+
+### User Management
+| Tool | Description |
+|------|-------------|
+| `get_users` | Get all users with filtering |
+| `get_user` | Get a specific user by ID |
+
+### File Management
+| Tool | Description |
+|------|-------------|
+| `get_files` | Get files with filtering and pagination |
+
+### Diagnostics
+| Tool | Description |
+|------|-------------|
+| `diagnose_collection_access` | Diagnose collection access issues |
+| `refresh_collection_cache` | Refresh collection cache |
+| `validate_collection_creation` | Validate newly created collections |
+
+---
+
+## Usage Examples
+
+Once configured, you can interact with Directus through your AI assistant:
+
+```
+"List all collections in my Directus instance"
+
+"Create a new collection called 'blog_posts' with title, content, and published fields"
+
+"Get all items from the 'products' collection where status is 'published'"
+
+"Create a new flow that triggers on item creation in the 'orders' collection"
+
+"Analyze the schema of the 'users' collection including relationships"
+```
+
+---
+
+## Troubleshooting
+
+### MCP Server Not Connecting
+
+1. **Verify Directus is running**: Ensure your Directus instance is accessible at the configured URL
+2. **Check token permissions**: The API token needs appropriate permissions for the operations you want to perform
+3. **Restart IDE**: After changing MCP configuration, fully restart your IDE
+4. **Check logs**: Look for MCP-related errors in your IDE's developer console
+
+### Permission Errors
+
+Ensure your Directus token has the required permissions:
+- Admin token for full access
+- Or configure specific role permissions for collections you need to access
+
+### Connection Timeout
+
+If using a remote Directus instance:
+- Verify the URL is correct and accessible
+- Check firewall/network settings
+- Ensure CORS is properly configured on Directus
+
+---
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Watch mode
+npm run dev
+
+# Run server
+npm start
+
+# Type check
+npm run typecheck
+
+# Lint
+npm run lint
+```
+
+---
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## License
+
+MIT © [Jorge Domingues Nunes](https://github.com/staminna)
+
+---
+
+## Links
+
+- [npm Package](https://www.npmjs.com/package/@staminna/directus-mcp-server)
+- [GitHub Repository](https://github.com/staminna/mcp-server-claude)
+- [Directus Documentation](https://docs.directus.io/)
+- [MCP Protocol Specification](https://modelcontextprotocol.io/)
