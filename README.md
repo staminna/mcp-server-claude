@@ -1,6 +1,6 @@
 # @staminna/directus-mcp-server
 
-Enhanced MCP (Model Context Protocol) server for Directus with TypeScript, WebSocket support, and full API coverage.
+Enhanced MCP (Model Context Protocol) server for Directus v12.0.0 with TypeScript, WebSocket support, and full API coverage.
 
 [![npm version](https://badge.fury.io/js/%40staminna%2Fdirectus-mcp-server.svg)](https://www.npmjs.com/package/@staminna/directus-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
