@@ -35,3 +35,17 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+
+# Test coverage output
+coverage/
+
+# Local MCP client configs and launchers (may contain access tokens)
+claude-desktop-config*.json
+cowork-mcp-config.json
+mcp-config-direct.json
+start-mcp.sh
+mcp-cloude-server-directus-fixed.ts
+
+# Local agent state artifacts
+registered_agents.json
+task_agent_mapping.json
