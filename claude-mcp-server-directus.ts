@@ -9,7 +9,8 @@ import {
   GetPromptRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios from 'axios';
+import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import WebSocket from 'ws';
 import FormData from 'form-data';
 import fs from 'fs';
@@ -231,7 +232,7 @@ interface QueryOptions {
 // ===== CONFIGURATION =====
 
 const config: DirectusConfig = {
-  url: process.env.DIRECTUS_URL || 'http://localhost:8065',
+  url: process.env.DIRECTUS_URL || 'https://local-mcp-server.dev',
   token: process.env.DIRECTUS_TOKEN || '',
   timeout: parseInt(process.env.DIRECTUS_TIMEOUT || '30000'),
   retries: parseInt(process.env.DIRECTUS_RETRIES || '3'),
@@ -1019,11 +1020,11 @@ class DirectusMCPServer {
 
       // User management
       case 'get_users':
-        return this.handleGetUsers();
+        return this.handleGetUsers(args);
       case 'create_user':
         return this.handleCreateUser(args);
       case 'get_roles':
-        return this.handleGetRoles();
+        return this.handleGetRoles(args);
 
       // File management
       case 'get_files':
@@ -1076,50 +1077,725 @@ class DirectusMCPServer {
 
   // Tool handlers implementation
   private async handleListCollections(): Promise<any> {
-    const collections = await this.directus.getCollections();
-    const nonSystemCollections = collections.filter(c => !c.collection.startsWith('directus_'));
-    
-    return {
-      content: [{
-        type: 'text',
-        text: `Available collections (${nonSystemCollections.length}):\n\n${nonSystemCollections.map(c => 
-          `• ${c.collection}: ${c.meta?.note || 'No description'}`
-        ).join('\n')}`
-      }]
-    };
+    try {
+      const collections = await this.directus.getCollections();
+      const nonSystemCollections = collections.filter((c: any) => !c.collection.startsWith('directus_'));
+      
+      return {
+        content: [{
+          type: 'text',
+          text: `Available collections (${nonSystemCollections.length}):\n\n${nonSystemCollections.map((c: any) => 
+            `• ${c.collection}: ${c.meta?.note || 'No description'}`
+          ).join('\n')}`
+        }]
+      };
+    } catch (error: any) {
+      this.logger.error('Error listing collections', { error: error.message });
+      return {
+        success: false,
+        error: error.message || 'Failed to list collections',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleUpdateCollection(args: any): Promise<any> {
+    try {
+      const { collection, meta, schema } = args;
+      
+      if (!collection) {
+        throw new Error('Missing required parameter: collection name is required');
+      }
+
+      const updateData: any = {};
+      if (meta) updateData.meta = meta;
+      if (schema) updateData.schema = schema;
+
+      if (Object.keys(updateData).length === 0) {
+        throw new Error('No update data provided. Please provide meta or schema to update.');
+      }
+
+      const result = await this.directus.updateCollection(collection, updateData);
+      
+      return {
+        success: true,
+        data: result,
+        message: `Collection '${collection}' updated successfully`
+      };
+    } catch (error: any) {
+      this.logger.error('Error updating collection', { error: error.message, args });
+      return {
+        success: false,
+        error: error.message || 'Failed to update collection',
+        details: error.response?.data || null
+      };
+    }
   }
 
   private async handleCreateCollection(args: any): Promise<any> {
-    const { collection, meta = {} } = args;
-    
-    const collectionData: DirectusCollection = {
-      collection,
-      meta: {
-        collection,
-        icon: 'folder',
-        color: '#6644FF',
-        note: null,
-        display_template: null,
-        hidden: false,
-        singleton: false,
-        sort_field: 'sort',
-        archive_field: 'status',
-        archive_app_filter: true,
-        archive_value: 'archived',
-        unarchive_value: 'draft',
-        accountability: 'all',
-        ...meta
+    try {
+      const { collection, meta, schema } = args;
+      
+      if (!collection || !meta || !schema) {
+        throw new Error('Missing required parameters: collection, meta, and schema are required');
       }
-    };
 
-    const result = await this.directus.createCollection(collectionData);
+      const collectionData = {
+        collection,
+        meta,
+        schema
+      };
+
+      const result = await this.directus.createCollection(collectionData);
+      return { success: true, data: result };
+    } catch (error: any) {
+      this.logger.error('Error creating collection', { error: error.message, args });
+      return { 
+        success: false, 
+        error: error.message || 'Failed to create collection',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleDeleteCollection(args: any): Promise<any> {
+    try {
+      const { collection } = args;
+      
+      if (!collection) {
+        throw new Error('Missing required parameter: collection name is required');
+      }
+
+      await this.directus.deleteCollection(collection);
+      
+      return { 
+        success: true, 
+        message: `Collection '${collection}' deleted successfully`
+      };
+    } catch (error: any) {
+      this.logger.error('Error deleting collection', { error: error.message, args });
+      return { 
+        success: false, 
+        error: error.message || 'Failed to delete collection',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleGetFields(args: any): Promise<any> {
+    try {
+      const { collection } = args;
+      
+      if (!collection) {
+        throw new Error('Missing required parameter: collection name is required');
+      }
+
+      const fields = await this.directus.getFields(collection);
+      
+      return {
+        success: true,
+        data: fields
+      };
+    } catch (error: any) {
+      this.logger.error('Error getting fields', { error: error.message, args });
+      return {
+        success: false,
+        error: error.message || 'Failed to get fields',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleUpdateField(args: any): Promise<any> {
+    const { collection, field, meta = {}, schema = {} } = args;
     
-    return {
-      content: [{
-        type: 'text',
-        text: `Collection '${collection}' created successfully\n\n${JSON.stringify(result, null, 2)}`
-      }]
-    };
+    try {
+      if (!collection || !field) {
+        throw new Error('Missing required parameters: collection and field are required');
+      }
+
+      const updateData: any = {};
+      if (Object.keys(meta).length > 0) updateData.meta = meta;
+      if (Object.keys(schema).length > 0) updateData.schema = schema;
+
+      if (Object.keys(updateData).length === 0) {
+        throw new Error('No update data provided. Please provide meta or schema to update.');
+      }
+
+      const result = await this.directus.updateField(collection, field, updateData);
+      
+      return {
+        success: true,
+        data: result,
+        message: `Field '${field}' in collection '${collection}' updated successfully`
+      };
+    } catch (error: any) {
+      this.logger.error('Error updating field', { error: error.message, args });
+      return {
+        success: false,
+        error: error.message || 'Failed to update field',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleGetRelations(args: any = {}): Promise<any> {
+    try {
+      const { collection, field } = args;
+      
+      // Get all relations and filter based on parameters
+      const allRelations = await this.directus.getRelations();
+      let filteredRelations = allRelations;
+      
+      if (collection) {
+        filteredRelations = filteredRelations.filter((r: any) => 
+          r.collection === collection || r.related_collection === collection
+        );
+        
+        if (field) {
+          filteredRelations = filteredRelations.filter((r: any) => r.field === field);
+        }
+      }
+      
+      return {
+        success: true,
+        data: filteredRelations,
+        count: filteredRelations.length
+      };
+    } catch (error: any) {
+      this.logger.error('Error getting relations', { error: error.message, args });
+      return {
+        success: false,
+        error: error.message || 'Failed to get relations',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleGetCollectionItems(args: any): Promise<any> {
+    try {
+      const { 
+        collection, 
+        fields = ['*'], 
+        filter = {},
+        sort = [],
+        limit = 100,
+        page = 1,
+        search
+      } = args;
+
+      if (!collection) {
+        throw new Error('Missing required parameter: collection');
+      }
+
+      const query: any = {
+        fields,
+        filter,
+        sort,
+        limit: Math.min(limit, 1000), // Enforce a reasonable limit
+        page,
+        meta: ['total_count', 'filter_count']
+      };
+
+      if (search) {
+        query.search = search;
+      }
+
+      const response = await this.directus.getItems(collection, query);
+      
+      // Handle array response (non-paginated)
+      if (Array.isArray(response)) {
+        return {
+          success: true,
+          data: response,
+          meta: {
+            total: response.length,
+            filtered: response.length,
+            page: 1,
+            limit: response.length
+          }
+        };
+      }
+      
+      // Handle object response (paginated or other format)
+      if (response && typeof response === 'object') {
+        // Check if it's a paginated response with data and meta
+        const responseObj = response as Record<string, any>;
+        const data = Array.isArray(responseObj.data) ? responseObj.data : [];
+        const meta = responseObj.meta || {};
+        
+        return {
+          success: true,
+          data,
+          meta: {
+            total: meta.total_count || data.length,
+            filtered: meta.filter_count || data.length,
+            page: page,
+            limit: query.limit
+          }
+        };
+      }
+      
+      // Fallback for unexpected response format
+      return {
+        success: true,
+        data: [],
+        meta: {
+          total: 0,
+          filtered: 0,
+          page: 1,
+          limit: 0
+        }
+      };
+    } catch (error: any) {
+      this.logger.error('Error getting collection items', { 
+        error: error.message, 
+        collection: args.collection,
+        details: error.response?.data || null
+      });
+      return {
+        success: false,
+        error: error.message || 'Failed to get collection items',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleCreateBatchItems(args: any): Promise<any> {
+    try {
+      const { collection, items } = args;
+      
+      if (!collection || !items) {
+        throw new Error('Missing required parameters: collection and items are required');
+      }
+      
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new Error('Items must be a non-empty array');
+      }
+      
+      // Add status if not provided in any item
+      const itemsWithStatus = items.map(item => ({
+        ...item,
+        status: 'status' in item ? item.status : 'published'
+      }));
+      
+      const results: any[] = [];
+      
+      // Process items in chunks to avoid overwhelming the API
+      const chunkSize = 25; // Process 25 items at a time
+      for (let i = 0; i < itemsWithStatus.length; i += chunkSize) {
+        const chunk = itemsWithStatus.slice(i, i + chunkSize);
+        const chunkResults = await Promise.all(
+          chunk.map(item => 
+            this.directus.createItem(collection, item).catch((error: any) => ({
+              success: false,
+              error: error.message,
+              data: item,
+              details: error.response?.data || null
+            }))
+          )
+        );
+        results.push(...chunkResults);
+      }
+      
+      // Check for any failures
+      const failedItems = results.filter((result: any) => result && result.success === false);
+      const successCount = results.length - failedItems.length;
+      
+      if (failedItems.length > 0) {
+        this.logger.warn('Some items failed to create', { 
+          total: results.length,
+          success: successCount,
+          failed: failedItems.length,
+          failedItems: failedItems.map((item: any, index: number) => ({
+            index,
+            error: item.error,
+            details: item.details
+          }))
+        });
+        
+        return {
+          success: true, // Still success as some items were created
+          data: results,
+          meta: {
+            total: results.length,
+            success: successCount,
+            failed: failedItems.length
+          },
+          warnings: [
+            `Successfully created ${successCount} items, but ${failedItems.length} items failed.`,
+            'Check the response data for details on failed items.'
+          ]
+        };
+      }
+      
+      return {
+        success: true,
+        data: results,
+        meta: {
+          total: results.length,
+          success: results.length,
+          failed: 0
+        },
+        message: `Successfully created ${results.length} items`
+      };
+    } catch (error: any) {
+      this.logger.error('Error creating batch items', { 
+        error: error.message, 
+        collection: args.collection,
+        details: error.response?.data || null
+      });
+      return {
+        success: false,
+        error: error.message || 'Failed to create batch items',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleQueryItems(args: any): Promise<any> {
+    try {
+      const { 
+        collection, 
+        fields = ['*'],
+        filter = {},
+        search,
+        sort = [],
+        limit = 100,
+        page = 1,
+        offset,
+        aggregate,
+        groupBy,
+        deep = {}
+      } = args;
+
+      if (!collection) {
+        throw new Error('Missing required parameter: collection');
+      }
+
+      // Build the query object
+      const query: Record<string, any> = {
+        fields,
+        filter,
+        sort,
+        limit: Math.min(limit, 1000), // Enforce a reasonable limit
+        page,
+        meta: ['total_count', 'filter_count'],
+        ...(offset !== undefined && { offset }),
+        ...(aggregate && { aggregate }),
+        ...(groupBy && { groupBy }),
+        ...(Object.keys(deep).length > 0 && { deep })
+      };
+
+      // Add search if provided
+      if (search) {
+        query.search = search;
+      }
+
+      // Execute the query
+      const response = await this.directus.getItems(collection, query);
+      
+      // Handle both array and paginated responses
+      if (Array.isArray(response)) {
+        return {
+          success: true,
+          data: response,
+          meta: {
+            total: response.length,
+            filtered: response.length,
+            page: 1,
+            limit: response.length
+          }
+        };
+      }
+      
+      // Handle paginated response
+      const responseObj = response as Record<string, any>;
+      const data = Array.isArray(responseObj.data) ? responseObj.data : [];
+      const meta = responseObj.meta || {};
+      
+      return {
+        success: true,
+        data,
+        meta: {
+          total: meta.total_count || data.length,
+          filtered: meta.filter_count || data.length,
+          page: page,
+          limit: query.limit,
+          ...(offset !== undefined && { offset })
+        }
+      };
+    } catch (error: any) {
+      this.logger.error('Error querying items', { 
+        error: error.message, 
+        collection: args.collection,
+        details: error.response?.data || null
+      });
+      
+      return {
+        success: false,
+        error: error.message || 'Failed to query items',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleDeleteItem(args: any): Promise<any> {
+    try {
+      const { collection, id } = args;
+      
+      if (!collection || id === undefined) {
+        throw new Error('Missing required parameters: collection and id are required');
+      }
+      
+      await this.directus.deleteItem(collection, id);
+      
+      return {
+        success: true,
+        message: 'Item deleted successfully'
+      };
+    } catch (error: any) {
+      this.logger.error('Error deleting item', { 
+        error: error.message, 
+        collection: args.collection,
+        id: args.id,
+        details: error.response?.data || null
+      });
+      
+      // Handle 404 Not Found specifically
+      if (error.response?.status === 404) {
+        return {
+          success: false,
+          error: 'Item not found',
+          details: { collection: args.collection, id: args.id }
+        };
+      }
+      
+      return {
+        success: false,
+        error: error.message || 'Failed to delete item',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleUpdateItem(args: any): Promise<any> {
+    try {
+      const { collection, id, data } = args;
+      
+      if (!collection || id === undefined || !data) {
+        throw new Error('Missing required parameters: collection, id, and data are required');
+      }
+      
+      if (typeof data !== 'object' || data === null) {
+        throw new Error('Data must be an object');
+      }
+      
+      const result = await this.directus.updateItem(collection, id, data);
+      
+      return {
+        success: true,
+        data: result,
+        message: 'Item updated successfully'
+      };
+    } catch (error: any) {
+      this.logger.error('Error updating item', { 
+        error: error.message, 
+        collection: args.collection,
+        id: args.id,
+        details: error.response?.data || null
+      });
+      return {
+        success: false,
+        error: error.message || 'Failed to update item',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleCreateItem(args: any): Promise<any> {
+    try {
+      const { collection, data } = args;
+      
+      if (!collection || !data) {
+        throw new Error('Missing required parameters: collection and data are required');
+      }
+      
+      if (typeof data !== 'object' || data === null) {
+        throw new Error('Data must be an object');
+      }
+      
+      // Add status if not provided
+      const itemData = { ...data };
+      if (!('status' in itemData)) {
+        itemData.status = 'published';
+      }
+      
+      const result = await this.directus.createItem(collection, itemData);
+      
+      return {
+        success: true,
+        data: result,
+        message: 'Item created successfully'
+      };
+    } catch (error: any) {
+      this.logger.error('Error creating item', { 
+        error: error.message, 
+        collection: args.collection,
+        details: error.response?.data || null
+      });
+      return {
+        success: false,
+        error: error.message || 'Failed to create item',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleDeleteRelation(args: any): Promise<any> {
+    try {
+      const { collection, field } = args;
+      
+      if (!collection || !field) {
+        throw new Error('Missing required parameters: collection and field are required');
+      }
+
+      await this.directus.deleteRelation(collection, field);
+      
+      return {
+        success: true,
+        message: `Relation '${field}' deleted from collection '${collection}'`
+      };
+    } catch (error: any) {
+      this.logger.error('Error deleting relation', { error: error.message, args });
+      return {
+        success: false,
+        error: error.message || 'Failed to delete relation',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleCreateRelation(args: any): Promise<any> {
+    try {
+      const {
+        collection,
+        field,
+        related_collection,
+        meta = {},
+        schema = {},
+        type = 'many-to-one'
+      } = args;
+
+      if (!collection || !field || !related_collection) {
+        throw new Error('Missing required parameters: collection, field, and related_collection are required');
+      }
+
+      const relationData: any = {
+        collection,
+        field,
+        related_collection,
+        meta: {
+          ...meta,
+          special: meta.special || [],
+          interface: meta.interface || 'select-dropdown-m2o',
+          display: meta.display || 'related-values',
+          display_options: meta.display_options || {
+            template: '{{ name }}',
+            visible_options: 15,
+            enableCreate: true,
+            enableSelect: true
+          }
+        },
+        schema: {
+          ...schema,
+          on_delete: schema.on_delete || 'SET NULL',
+          on_update: schema.on_update || 'CASCADE'
+        }
+      };
+
+      // Set relation type specific configurations
+      if (type === 'many-to-many') {
+        relationData.meta.special = [...(relationData.meta.special || []), 'm2m'];
+        relationData.schema = {
+          ...relationData.schema,
+          junction_field: schema.junction_field || `${collection}_id`,
+          related_junction_field: schema.related_junction_field || `${related_collection}_id`
+        };
+      } else if (type === 'one-to-many') {
+        relationData.meta.special = [...(relationData.meta.special || []), 'o2m'];
+        relationData.schema = {
+          ...relationData.schema,
+          one_field: schema.one_field || field.replace(/_id$/, '')
+        };
+      } else {
+        // many-to-one
+        relationData.meta.special = [...(relationData.meta.special || []), 'm2o'];
+      }
+
+      const result = await this.directus.createRelation(relationData);
+      
+      return {
+        success: true,
+        data: result,
+        message: `Created ${type} relation '${field}' from '${collection}' to '${related_collection}'`
+      };
+    } catch (error: any) {
+      this.logger.error('Error creating relation', { error: error.message, args });
+      return {
+        success: false,
+        error: error.message || 'Failed to create relation',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleDeleteFile(args: any): Promise<any> {
+    try {
+      const { id } = args;
+      
+      if (!id) {
+        throw new Error('Missing required parameter: id');
+      }
+
+      await this.directus.deleteFile(id);
+      
+      return {
+        success: true,
+        message: `File with ID ${id} deleted successfully`
+      };
+    } catch (error: any) {
+      this.logger.error('Error deleting file', { error: error.message });
+      return {
+        success: false,
+        error: error.message || 'Failed to delete file',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleDeleteField(args: any): Promise<any> {
+    const { collection, field } = args;
+    
+    try {
+      if (!collection || !field) {
+        throw new Error('Missing required parameters: collection and field are required');
+      }
+
+      await this.directus.deleteField(collection, field);
+      
+      return {
+        success: true,
+        message: `Field '${field}' deleted from collection '${collection}'`
+      };
+    } catch (error: any) {
+      this.logger.error('Error deleting field', { error: error.message, args });
+      return {
+        success: false,
+        error: error.message || 'Failed to delete field',
+        details: error.response?.data || null
+      };
+    }
   }
 
   private async handleCreateField(args: any): Promise<any> {
@@ -1166,6 +1842,51 @@ class DirectusMCPServer {
     };
   }
 
+  private async handleUploadFromPath(args: any): Promise<any> {
+    try {
+      const { path: filePath, title, folder } = args;
+      
+      if (!filePath) {
+        throw new Error('Missing required parameter: path');
+      }
+
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`File not found: ${filePath}`);
+      }
+      
+      // Read file from path
+      const fileBuffer = fs.readFileSync(filePath);
+      const fileName = title || path.basename(filePath);
+      
+      // Create form data for upload
+      const formData = new FormData();
+      formData.append('file', fileBuffer, { filename: fileName });
+      
+      if (folder) {
+        formData.append('folder', folder);
+      }
+      
+      if (title) {
+        formData.append('title', title);
+      }
+      
+      const file = await this.directus.uploadFile(formData);
+      
+      return {
+        success: true,
+        data: file,
+        message: 'File uploaded successfully'
+      };
+    } catch (error: any) {
+      this.logger.error('Error uploading file from path', { error: error.message });
+      return {
+        success: false,
+        error: error.message || 'Failed to upload file from path',
+        details: error.response?.data || null
+      };
+    }
+  }
+
   private async handleSubscribeRealtime(args: any): Promise<any> {
     const { event, collection } = args;
     const eventName = collection ? `${collection}.${event}` : event;
@@ -1206,6 +1927,40 @@ class DirectusMCPServer {
           type: 'text',
           text: 'WebSocket not connected. Cannot unsubscribe from real-time updates.'
         }]
+      };
+    }
+  }
+
+  private async handleGetSchema(): Promise<any> {
+    try {
+      const schema = await this.directus.getSchema();
+      return {
+        success: true,
+        data: schema
+      };
+    } catch (error: any) {
+      this.logger.error('Error getting schema', { error: error.message });
+      return {
+        success: false,
+        error: error.message || 'Failed to get schema',
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  private async handleGetServerInfo(): Promise<any> {
+    try {
+      const serverInfo = await this.directus.getServerInfo();
+      return {
+        success: true,
+        data: serverInfo
+      };
+    } catch (error: any) {
+      this.logger.error('Error getting server info', { error: error.message });
+      return {
+        success: false,
+        error: error.message || 'Failed to get server info',
+        details: error.response?.data || null
       };
     }
   }
@@ -1318,6 +2073,24 @@ class DirectusMCPServer {
     };
   }
 
+  private async handleGetUsers(args: any): Promise<any> {
+    try {
+      const users = await this.directus.getUsers();
+      return {
+        success: true,
+        data: users,
+        count: users.length
+      };
+    } catch (error: any) {
+      this.logger.error('Error getting users', { error: error.message });
+      return {
+        success: false,
+        error: error.message || 'Failed to get users',
+        details: error.response?.data || null
+      };
+    }
+  }
+
   private async handleGetCustomers(args: any): Promise<any> {
     const { limit = 25, offset = 0, filter = {}, search } = args;
     
@@ -1339,6 +2112,28 @@ class DirectusMCPServer {
     };
   }
 
+  private async handleCreateUser(args: any): Promise<any> {
+    try {
+      if (!args.email || !args.password) {
+        throw new Error('Missing required parameters: email and password are required');
+      }
+
+      const user = await this.directus.createUser(args);
+      return {
+        success: true,
+        data: user,
+        message: 'User created successfully'
+      };
+    } catch (error: any) {
+      this.logger.error('Error creating user', { error: error.message });
+      return {
+        success: false,
+        error: error.message || 'Failed to create user',
+        details: error.response?.data || null
+      };
+    }
+  }
+
   private async handleCreateCustomer(args: any): Promise<any> {
     const { first_name, last_name, email } = args;
     
@@ -1355,6 +2150,24 @@ class DirectusMCPServer {
         text: `Customer "${first_name} ${last_name}" created successfully with ID: ${customer.id}`
       }]
     };
+  }
+
+  private async handleGetRoles(args: any): Promise<any> {
+    try {
+      const roles = await this.directus.getRoles();
+      return {
+        success: true,
+        data: roles,
+        count: roles.length
+      };
+    } catch (error: any) {
+      this.logger.error('Error getting roles', { error: error.message });
+      return {
+        success: false,
+        error: error.message || 'Failed to get roles',
+        details: error.response?.data || null
+      };
+    }
   }
 
   private async handleGetBrands(args: any): Promise<any> {
@@ -1377,6 +2190,24 @@ class DirectusMCPServer {
     };
   }
 
+  private async handleGetFiles(): Promise<any> {
+    try {
+      const files = await this.directus.getFiles();
+      return {
+        success: true,
+        data: files,
+        count: files.length
+      };
+    } catch (error: any) {
+      this.logger.error('Error getting files', { error: error.message });
+      return {
+        success: false,
+        error: error.message || 'Failed to get files',
+        details: error.response?.data || null
+      };
+    }
+  }
+
   private async handleGetCategories(args: any): Promise<any> {
     const { limit = 25, offset = 0, filter = {} } = args;
     
@@ -1395,6 +2226,47 @@ class DirectusMCPServer {
         ).join('\n')}`
       }]
     };
+  }
+
+  private async handleUploadFromUrl(args: any): Promise<any> {
+    try {
+      const { url, title, folder } = args;
+      
+      if (!url) {
+        throw new Error('Missing required parameter: url');
+      }
+
+      // Download the file from URL
+      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      const buffer = Buffer.from(response.data);
+      
+      // Create form data for upload
+      const formData = new FormData();
+      formData.append('file', buffer, { filename: title || url.split('/').pop() });
+      
+      if (folder) {
+        formData.append('folder', folder);
+      }
+      
+      if (title) {
+        formData.append('title', title);
+      }
+      
+      const file = await this.directus.uploadFile(formData);
+      
+      return {
+        success: true,
+        data: file,
+        message: 'File uploaded successfully'
+      };
+    } catch (error: any) {
+      this.logger.error('Error uploading file from URL', { error: error.message });
+      return {
+        success: false,
+        error: error.message || 'Failed to upload file from URL',
+        details: error.response?.data || null
+      };
+    }
   }
 
   private async handleGetProductImages(args: any): Promise<any> {
