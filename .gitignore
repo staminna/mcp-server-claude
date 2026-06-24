@@ -42,6 +42,8 @@ Thumbs.db
 coverage/
 
 # Local MCP client configs and launchers (may contain access tokens)
+.windsurfrc
+!.windsurfrc.example
 claude-desktop-config*.json
 cowork-mcp-config.json
 mcp-config-direct.json
