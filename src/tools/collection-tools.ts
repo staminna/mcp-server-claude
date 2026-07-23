@@ -122,15 +122,12 @@ export class CollectionTools {
     try {
       logger.toolStart('create_collection', args);
 
-      // Create collection
-      await this.client.createCollection(args.collection, args.meta || {});
-
-      // Create fields if provided
-      if (args.fields && args.fields.length > 0) {
-        for (const fieldData of args.fields) {
-          await this.client.createField(args.collection, fieldData);
-        }
-      }
+      // Create collection — fields are passed through so Directus creates the
+      // table + columns atomically in one POST /collections request.
+      // (Creating the collection first and adding fields afterwards does NOT
+      // work: without fields the collection is a schema-less folder, and
+      // POST /fields on a folder fails with FORBIDDEN.)
+      await this.client.createCollection(args.collection, args.meta || {}, args.fields);
 
       const duration = logger.endTimer(operationId);
       logger.toolEnd('create_collection', duration, true, { 

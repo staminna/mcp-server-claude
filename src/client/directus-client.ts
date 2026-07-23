@@ -315,8 +315,47 @@ export class DirectusClient {
     return this.get(`/collections/${collection}`);
   }
 
-  async createCollection(collection: string, meta: Record<string, any> = {}): Promise<DirectusResponse> {
-    return this.post('/collections', { collection, meta });
+  async createCollection(
+    collection: string,
+    meta: Record<string, any> = {},
+    fields?: Record<string, any>[]
+  ): Promise<DirectusResponse> {
+    const payload: Record<string, any> = { collection, meta };
+
+    if (fields && fields.length > 0) {
+      // A collection with fields must be created as a real table (schema: {})
+      // in a single atomic POST — adding fields after a schema-less create
+      // fails because Directus treats schema:null collections as folders.
+      payload.schema = {};
+      payload.fields = fields.map((f) => ({
+        field: f.field ?? f.name,
+        type: f.type,
+        meta: f.meta ?? {
+          interface: f.interface ?? null,
+          note: f.note ?? null,
+          options: f.options ?? null,
+          required: f.required ?? false,
+          special: f.special ?? null,
+        },
+        schema: f.schema ?? (f.type === 'alias' ? undefined : {}),
+      }));
+
+      // Directus requires a primary key on new tables — inject one if missing
+      const hasPk = payload.fields.some((f: Record<string, any>) => f.schema?.is_primary_key);
+      if (!hasPk) {
+        payload.fields.unshift({
+          field: 'id',
+          type: 'integer',
+          meta: { hidden: true, interface: 'input', readonly: true },
+          schema: { is_primary_key: true, has_auto_increment: true },
+        });
+      }
+    } else {
+      // No fields → collection folder (grouping element), schema must be null
+      payload.schema = null;
+    }
+
+    return this.post('/collections', payload);
   }
 
   async updateCollection(collection: string, meta: Record<string, any>): Promise<DirectusResponse> {
