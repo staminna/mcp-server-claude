@@ -7,7 +7,7 @@
   "types": "dist/lib.d.ts",
   "type": "module",
   "bin": {
-    "directus-mcp": "./dist/index.js"
+    "directus-mcp": "dist/index.js"
   },
   "files": [
     "dist/**/*",
@@ -19,7 +19,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/staminna/mcp-server-claude.git"
+    "url": "git+https://github.com/staminna/mcp-server-claude.git"
   },
   "homepage": "https://github.com/staminna/mcp-server-claude#readme",
   "bugs": {
