@@ -49,7 +49,7 @@ export class FlowTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_flows', error as Error);
       
       return {
@@ -87,7 +87,7 @@ export class FlowTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_flow', error as Error, { flowId: args.id });
       
       return {
@@ -122,7 +122,7 @@ export class FlowTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('trigger_flow', error as Error, { flowId: args.id });
       
       return {
@@ -180,7 +180,7 @@ export class FlowTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('create_flow', error as Error, { name: args.name });
       
       return {
@@ -215,7 +215,7 @@ export class FlowTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('update_flow', error as Error, { flowId: args.id });
       
       return {
@@ -255,7 +255,7 @@ export class FlowTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('delete_flow', error as Error, { flowId: args.id });
       
       return {
@@ -307,7 +307,7 @@ export class FlowTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_operations', error as Error, { flowId: args.flow_id });
       
       return {

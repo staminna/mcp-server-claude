@@ -188,7 +188,7 @@ export class DiagnosticTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('diagnose_collection_access', error as Error, { collection: args.collection });
       
       return {
@@ -290,7 +290,7 @@ export class DiagnosticTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('refresh_collection_cache', error as Error);
       
       return {
@@ -417,7 +417,7 @@ export class DiagnosticTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('validate_collection_creation', error as Error, { collection: args.collection });
       
       return {

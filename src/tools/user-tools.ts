@@ -48,7 +48,7 @@ export class UserTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_users', error as Error);
       
       return {
@@ -84,7 +84,7 @@ export class UserTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_user', error as Error, { userId: args.id });
       
       return {
@@ -141,7 +141,7 @@ export class UserTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('create_user', error as Error, { email: args.email });
       
       return {
@@ -176,7 +176,7 @@ export class UserTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('update_user', error as Error, { userId: args.id });
       
       return {
@@ -216,7 +216,7 @@ export class UserTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('delete_user', error as Error, { userId: args.id });
       
       return {
@@ -263,7 +263,7 @@ export class UserTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_roles', error as Error);
       
       return {
@@ -295,7 +295,7 @@ export class UserTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_role', error as Error, { roleId: args.id });
       
       return {
@@ -348,7 +348,7 @@ export class UserTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('create_role', error as Error, { name: args.name });
       
       return {
@@ -402,7 +402,7 @@ export class UserTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_permissions', error as Error, { 
         role: args.role,
         collection: args.collection
@@ -457,7 +457,7 @@ export class UserTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('create_permission', error as Error, { 
         role: args.role,
         collection: args.collection,

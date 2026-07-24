@@ -66,7 +66,7 @@ export class FileTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('upload_file', error as Error);
       
       return {
@@ -126,7 +126,7 @@ export class FileTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_files', error as Error);
       
       return {
@@ -162,7 +162,7 @@ export class FileTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_file', error as Error, { fileId: args.id });
       
       return {
@@ -202,7 +202,7 @@ export class FileTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('delete_file', error as Error, { fileId: args.id });
       
       return {
@@ -245,7 +245,7 @@ export class FileTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('create_folder', error as Error, { name: args.name });
       
       return {
@@ -297,7 +297,7 @@ export class FileTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_folders', error as Error, { parent: args.parent });
       
       return {
@@ -332,7 +332,7 @@ export class FileTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('update_file', error as Error, { fileId: args.id });
       
       return {
@@ -393,7 +393,7 @@ export class FileTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_file_url', error as Error, { fileId: args.id });
       
       return {

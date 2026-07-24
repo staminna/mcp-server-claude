@@ -6,9 +6,8 @@ import {
   QueryOptions, 
   DirectusField, 
   DirectusRelation, 
-  DirectusFieldType, 
-  DirectusInterface,
-  DirectusRelationConfig 
+  DirectusFieldType,
+  DirectusInterface
 } from '../types/directus.js';
 
 export class CollectionTools {
@@ -40,7 +39,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('list_collections', error as Error);
       
       return {
@@ -94,7 +93,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_collection_schema', error as Error, { collection: args.collection });
       
       return {
@@ -142,7 +141,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('create_collection', error as Error, { collection: args.collection });
       
       return {
@@ -182,7 +181,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('delete_collection', error as Error, { collection: args.collection });
       
       return {
@@ -237,7 +236,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('get_collection_items', error as Error, { collection: args.collection });
       
       return {
@@ -275,7 +274,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('create_item', error as Error, { collection: args.collection });
       
       return {
@@ -314,7 +313,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('update_item', error as Error, { 
         collection: args.collection,
         itemId: args.id
@@ -376,7 +375,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('delete_items', error as Error, { 
         collection: args.collection,
         count: args.ids.length
@@ -448,7 +447,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('create_field', error as Error, { 
         collection: args.collection,
         field: args.field
@@ -519,7 +518,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('update_field', error as Error, { 
         collection: args.collection,
         field: args.field
@@ -581,7 +580,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('delete_field', error as Error, { 
         collection: args.collection,
         field: args.field
@@ -689,7 +688,7 @@ export class CollectionTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('bulk_operations', error as Error, { collection: args.collection });
       
       return {

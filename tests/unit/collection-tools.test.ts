@@ -139,11 +139,11 @@ describe('CollectionTools', () => {
 
       expect(out).toContain('Collection "events" created successfully');
       expect(out).not.toContain('with');
-      expect(stub.createCollection).toHaveBeenCalledWith('events', {});
+      expect(stub.createCollection).toHaveBeenCalledWith('events', {}, undefined);
       expect(stub.createField).not.toHaveBeenCalled();
     });
 
-    it('creates a collection and each provided field', async () => {
+    it('creates a collection passing fields atomically', async () => {
       const stub = makeClientStub();
       const tools = new CollectionTools(stub);
       const fields = [
@@ -158,10 +158,8 @@ describe('CollectionTools', () => {
       });
 
       expect(text(result)).toContain('Collection "events" created successfully with 2 fields');
-      expect(stub.createCollection).toHaveBeenCalledWith('events', { note: 'Events' });
-      expect(stub.createField).toHaveBeenCalledTimes(2);
-      expect(stub.createField).toHaveBeenNthCalledWith(1, 'events', fields[0]);
-      expect(stub.createField).toHaveBeenNthCalledWith(2, 'events', fields[1]);
+      expect(stub.createCollection).toHaveBeenCalledWith('events', { note: 'Events' }, fields);
+      expect(stub.createField).not.toHaveBeenCalled();
     });
 
     it('returns an error message when the client rejects', async () => {

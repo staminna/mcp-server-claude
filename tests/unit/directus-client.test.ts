@@ -466,10 +466,26 @@ describe('endpoint wrappers hit the expected method and path', () => {
     expect(res.data).toEqual({ ok: true });
   });
 
-  it('createCollection defaults meta to an empty object', async () => {
+  it('createCollection defaults meta to an empty object and schema to null (folder)', async () => {
     const seen = recordAll();
     await makeClient().createCollection('widgets');
-    expect(JSON.parse(seen[0].body)).toEqual({ collection: 'widgets', meta: {} });
+    expect(JSON.parse(seen[0].body)).toEqual({ collection: 'widgets', meta: {}, schema: null });
+  });
+
+  it('createCollection with fields sends schema:{} and injects an id primary key', async () => {
+    const seen = recordAll();
+    await makeClient().createCollection('widgets', {}, [{ field: 'name', type: 'string' }]);
+
+    const body = JSON.parse(seen[0].body);
+    expect(body.collection).toBe('widgets');
+    expect(body.schema).toEqual({});
+    expect(body.fields).toHaveLength(2);
+    expect(body.fields[0]).toMatchObject({
+      field: 'id',
+      type: 'integer',
+      schema: { is_primary_key: true, has_auto_increment: true },
+    });
+    expect(body.fields[1]).toMatchObject({ field: 'name', type: 'string', schema: {} });
   });
 
   it('updateCollection wraps the payload in { meta }', async () => {

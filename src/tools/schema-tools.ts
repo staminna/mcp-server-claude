@@ -128,7 +128,7 @@ export class SchemaTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('analyze_collection_schema', error as Error, { collection: args.collection });
       
       return {
@@ -188,7 +188,7 @@ export class SchemaTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('analyze_relationships', error as Error);
       
       return {
@@ -246,7 +246,7 @@ export class SchemaTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('create_relationship', error as Error, { type: args.type });
       
       return {
@@ -302,7 +302,7 @@ export class SchemaTools {
         }]
       };
     } catch (error) {
-      const duration = logger.endTimer(operationId);
+      logger.endTimer(operationId);
       logger.toolError('validate_collection_schema', error as Error, { collection: args.collection });
       
       return {
@@ -378,10 +378,8 @@ export class SchemaTools {
     collection: DirectusCollection, 
     fields: DirectusField[], 
     relations: DirectusRelation[],
-    strict?: boolean
+    _strict?: boolean
   ): Promise<SchemaValidation> {
-    // Use strict parameter for enhanced validation if needed
-    const enhancedValidation = strict || false;
     const errors: SchemaError[] = [];
     const warnings: SchemaWarning[] = [];
 
