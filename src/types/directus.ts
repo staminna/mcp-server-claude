@@ -390,6 +390,14 @@ export interface QueryOptions {
   aggregate?: Record<string, any> | undefined;
   groupBy?: string[] | undefined;
   export?: 'json' | 'csv' | 'xml' | undefined;
+  /**
+   * Content version to read. Use 'published' for the published version of a
+   * versioned collection, or a version key for a draft. Directus 12 superseded
+   * the legacy `version=main` with `version=published`.
+   */
+  version?: string | undefined;
+  /** Return the raw version delta instead of the item merged with its version. */
+  versionRaw?: boolean | undefined;
 }
 
 // API Response Types

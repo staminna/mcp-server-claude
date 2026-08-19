@@ -125,7 +125,7 @@ describe('constructor and auth', () => {
   });
 });
 
-describe('buildQueryParams', () => {
+describe('query serialization', () => {
   it('serializes every supported option', async () => {
     let url: URL | undefined;
     server.use(
@@ -181,7 +181,7 @@ describe('buildQueryParams', () => {
     expect([...url!.searchParams.keys()]).toEqual([]);
   });
 
-  it('skips limit: 0 (current truthiness behavior)', async () => {
+  it('sends limit: 0 (Directus returns counts with no items)', async () => {
     let url: URL | undefined;
     server.use(
       http.get(`${DIRECTUS_URL}/items/articles`, ({ request }) => {
@@ -192,7 +192,10 @@ describe('buildQueryParams', () => {
 
     await makeClient().getItems('articles', { limit: 0 });
 
-    expect(url!.searchParams.get('limit')).toBeNull();
+    // The previous axios query builder dropped limit: 0 on a truthiness check.
+    // The SDK gates on limit >= -1, so 0 now reaches the wire — which is the
+    // correct Directus semantics (no items, but meta counts still returned).
+    expect(url!.searchParams.get('limit')).toBe('0');
   });
 });
 
@@ -681,78 +684,5 @@ describe('ping', () => {
     );
 
     await expect(makeClient().ping()).resolves.toBe(false);
-  });
-});
-
-describe('createHttpsAgent', () => {
-  const PEM = '-----BEGIN CERTIFICATE-----\nMIIBfake\n-----END CERTIFICATE-----\n';
-  const KEY = '-----BEGIN PRIVATE KEY-----\nMIIEfake\n-----END PRIVATE KEY-----\n';
-  let tmpDir: string;
-
-  beforeAll(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'directus-client-test-'));
-  });
-
-  afterAll(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  it('accepts inline PEM strings (existsSync=false branch) plus pfx/passphrase/options', () => {
-    const client = new DirectusClient({
-      url: 'https://secure.directus.test',
-      https: {
-        ca: PEM,
-        cert: PEM,
-        key: KEY,
-        pfx: 'inline-pfx-content-not-a-path',
-        passphrase: 'secret',
-        rejectUnauthorized: false,
-        servername: 'secure.directus.test',
-      },
-    });
-
-    expect(client).toBeInstanceOf(DirectusClient);
-    expect((client as any).axios.defaults.httpsAgent).toBeDefined();
-    expect((client as any).axios.defaults.httpsAgent.options.rejectUnauthorized).toBe(false);
-    expect((client as any).axios.defaults.httpsAgent.options.servername).toBe('secure.directus.test');
-    expect((client as any).axios.defaults.httpsAgent.options.passphrase).toBe('secret');
-  });
-
-  it('loads ca/cert/key/pfx from real file paths (existsSync=true branch)', () => {
-    const caPath = path.join(tmpDir, 'ca.pem');
-    const certPath = path.join(tmpDir, 'cert.pem');
-    const keyPath = path.join(tmpDir, 'key.pem');
-    const pfxPath = path.join(tmpDir, 'bundle.pfx');
-    fs.writeFileSync(caPath, PEM);
-    fs.writeFileSync(certPath, PEM);
-    fs.writeFileSync(keyPath, KEY);
-    fs.writeFileSync(pfxPath, Buffer.from('pfx-bytes'));
-
-    const client = new DirectusClient({
-      url: 'https://secure.directus.test',
-      https: { ca: caPath, cert: certPath, key: keyPath, pfx: pfxPath },
-    });
-
-    const agentOptions = (client as any).axios.defaults.httpsAgent.options;
-    expect(Buffer.isBuffer(agentOptions.ca)).toBe(true);
-    expect(agentOptions.ca.toString()).toBe(PEM);
-    expect(agentOptions.cert.toString()).toBe(PEM);
-    expect(agentOptions.key.toString()).toBe(KEY);
-    expect(agentOptions.pfx.toString()).toBe('pfx-bytes');
-  });
-
-  it('accepts a non-string ca (Buffer branch)', () => {
-    const client = new DirectusClient({
-      url: 'https://secure.directus.test',
-      https: { ca: Buffer.from(PEM) },
-    });
-
-    const agentOptions = (client as any).axios.defaults.httpsAgent.options;
-    expect(Buffer.isBuffer(agentOptions.ca)).toBe(true);
-  });
-
-  it('creates no https agent when config.https is absent', () => {
-    const client = new DirectusClient({ url: DIRECTUS_URL });
-    expect((client as any).axios.defaults.httpsAgent).toBeUndefined();
   });
 });

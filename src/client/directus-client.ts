@@ -1,9 +1,24 @@
-// Enhanced Directus API Client with Axios, Retry Logic, and Comprehensive Error Handling
+// Directus API client: @directus/sdk command layer over an axios transport.
+//
+// The public surface of this class is deliberately unchanged — it is exported
+// from src/lib.ts as package API, and six tool classes plus the test stubs
+// depend on it. Only the internals moved to the SDK.
+//
+// Requests are built by SDK commands and executed through the injected fetch in
+// ./transport.ts. See that file for why the transport is axios rather than
+// Node's global fetch.
 
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import FormData from 'form-data';
+import {
+  createDirectus,
+  rest,
+  staticToken,
+  customEndpoint,
+  uploadFiles,
+  isDirectusError,
+  type RestCommand,
+} from '@directus/sdk';
 import { logger } from '../utils/logger.js';
-import { SERVER_NAME, SERVER_VERSION } from '../version.js';
+import { createDirectusFetch, type Envelope } from './transport.js';
 import {
   DirectusConfig,
   DirectusResponse,
@@ -14,13 +29,14 @@ import {
   UploadOptions,
   UploadResult
 } from '../types/directus.js';
-import https from 'https';
-import fs from 'fs';
+
+/** Options accepted by the generic post() helper. */
+export interface RequestConfig {
+  headers?: Record<string, string>;
+}
 
 export class DirectusClient {
-  private axios: AxiosInstance;
   private config: DirectusConfig;
-  private retryCount: number = 0;
 
   constructor(config: DirectusConfig) {
     this.config = {
@@ -30,282 +46,149 @@ export class DirectusClient {
       maxRetryDelay: 10000,
       ...config
     };
-
-    // Create HTTPS agent if certificate configuration is provided
-    const httpsAgent = this.createHttpsAgent();
-
-    this.axios = axios.create({
-      baseURL: this.config.url,
-      timeout: this.config.timeout,
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': `${SERVER_NAME}/${SERVER_VERSION}`
-      },
-      ...(httpsAgent && { httpsAgent })
-    });
-
-    this.setupInterceptors();
-    this.setupAuth();
   }
 
-  private createHttpsAgent(): https.Agent | null {
-    if (!this.config.https) {
-      return null;
+  /**
+   * Execute one SDK command.
+   *
+   * A fresh SDK client is built per call so the envelope listener can close over
+   * this call's `meta` without shared mutable state. createDirectus() is an
+   * object literal plus a URL parse and .with() is a spread, so this is cheap —
+   * and it makes the retry-counter leak of the previous implementation
+   * structurally impossible.
+   */
+  private async send<T = any>(command: RestCommand<any, any>): Promise<DirectusResponse<T>> {
+    let meta: DirectusResponse['meta'] | undefined;
+
+    const capture = (envelope: Envelope): void => {
+      if (envelope.meta) meta = envelope.meta;
+    };
+
+    const client = createDirectus<any>(this.config.url, {
+      globals: { fetch: createDirectusFetch(this.config, capture) },
+    })
+      .with(staticToken(this.config.token ?? ''))
+      .with(rest());
+
+    try {
+      const data = (await client.request(command)) as T;
+      return meta === undefined ? { data } : { data, meta };
+    } catch (error) {
+      throw this.parseDirectusError(error);
     }
+  }
 
-    const httpsOptions: https.AgentOptions = {};
+  /**
+   * Map QueryOptions onto the SDK's Query shape.
+   *
+   * Note `meta`: the SDK's queryToParams does not know that key, so it falls
+   * into a generic branch that JSON.stringifies arrays — producing
+   * meta=["total_count"], which Directus cannot parse. Joining it here keeps
+   * the wire format correct.
+   */
+  private toSdkQuery(options: QueryOptions = {}): Record<string, any> {
+    const query: Record<string, any> = {};
 
-    // Handle Certificate Authority (CA)
-    if (this.config.https.ca) {
-      if (typeof this.config.https.ca === 'string') {
-        // If it's a file path, read the certificate
-        if (fs.existsSync(this.config.https.ca)) {
-          httpsOptions.ca = fs.readFileSync(this.config.https.ca);
-          logger.info('Loaded CA certificate from file', { path: this.config.https.ca });
-        } else {
-          // Assume it's the certificate content itself
-          httpsOptions.ca = this.config.https.ca;
-          logger.info('Using provided CA certificate content');
+    if (options.fields) query.fields = options.fields;
+    if (options.filter) query.filter = options.filter;
+    if (options.sort) query.sort = options.sort;
+    if (options.limit !== undefined) query.limit = options.limit;
+    if (options.offset !== undefined) query.offset = options.offset;
+    if (options.page !== undefined) query.page = options.page;
+    if (options.search) query.search = options.search;
+    if (options.meta) query.meta = options.meta.join(',');
+    if (options.deep) query.deep = options.deep;
+    if (options.alias) query.alias = options.alias;
+    if (options.aggregate) query.aggregate = options.aggregate;
+    if (options.groupBy) query.groupBy = options.groupBy;
+    if (options.export) query.export = options.export;
+    if (options.version) query.version = options.version;
+    if (options.versionRaw !== undefined) query.versionRaw = options.versionRaw;
+
+    return query;
+  }
+
+  /**
+   * Normalise anything thrown by the SDK into a DirectusError.
+   *
+   * The SDK rejects with a RequestError whose `.errors` is the response body's
+   * `errors` array when there is one, and the whole body otherwise — so the
+   * legacy body shapes are still reachable and still handled.
+   */
+  private parseDirectusError(error: unknown): DirectusError {
+    if (isDirectusError(error)) {
+      const first = (error as any).errors?.[0] ?? {};
+      return {
+        message: first.message || 'Unknown Directus error',
+        extensions: {
+          code: first.extensions?.code || 'UNKNOWN',
+          collection: first.extensions?.collection,
+          field: first.extensions?.field
         }
-      } else {
-        httpsOptions.ca = this.config.https.ca;
-        logger.info('Using provided CA certificate buffer/array');
-      }
+      };
     }
 
-    // Handle Client Certificate
-    if (this.config.https.cert) {
-      if (typeof this.config.https.cert === 'string' && fs.existsSync(this.config.https.cert)) {
-        httpsOptions.cert = fs.readFileSync(this.config.https.cert);
-        logger.info('Loaded client certificate from file', { path: this.config.https.cert });
-      } else {
-        httpsOptions.cert = this.config.https.cert;
-        logger.info('Using provided client certificate content');
-      }
-    }
+    const raw = (error as any)?.errors ?? error;
 
-    // Handle Private Key
-    if (this.config.https.key) {
-      if (typeof this.config.https.key === 'string' && fs.existsSync(this.config.https.key)) {
-        httpsOptions.key = fs.readFileSync(this.config.https.key);
-        logger.info('Loaded private key from file', { path: this.config.https.key });
-      } else {
-        httpsOptions.key = this.config.https.key;
-        logger.info('Using provided private key content');
-      }
-    }
-
-    // Handle PFX/PKCS12
-    if (this.config.https.pfx) {
-      if (typeof this.config.https.pfx === 'string' && fs.existsSync(this.config.https.pfx)) {
-        httpsOptions.pfx = fs.readFileSync(this.config.https.pfx);
-        logger.info('Loaded PFX certificate from file', { path: this.config.https.pfx });
-      } else {
-        httpsOptions.pfx = this.config.https.pfx;
-        logger.info('Using provided PFX certificate content');
-      }
-    }
-
-    // Handle other HTTPS options
-    if (this.config.https.passphrase) {
-      httpsOptions.passphrase = this.config.https.passphrase;
-    }
-
-    if (this.config.https.rejectUnauthorized !== undefined) {
-      httpsOptions.rejectUnauthorized = this.config.https.rejectUnauthorized;
-    }
-
-    if (this.config.https.servername) {
-      httpsOptions.servername = this.config.https.servername;
-    }
-
-    logger.info('Created HTTPS agent with custom certificate configuration');
-    return new https.Agent(httpsOptions);
-  }
-
-  private setupAuth(): void {
-    if (this.config.token) {
-      this.axios.defaults.headers.common['Authorization'] = `Bearer ${this.config.token}`;
-    }
-  }
-
-  private setupInterceptors(): void {
-    // Request interceptor for logging and timing
-    this.axios.interceptors.request.use(
-      (config) => {
-        const requestId = this.generateRequestId();
-        // Add request metadata for logging
-        (config as any).metadata = { requestId, startTime: Date.now() };
-        
-        logger.apiRequest(
-          config.method?.toUpperCase() || 'GET',
-          `${config.baseURL}${config.url}`,
-          { requestId }
-        );
-
-        return config;
-      },
-      (error) => {
-        logger.apiError('REQUEST_SETUP', 'Failed to setup request', error);
-        return Promise.reject(error);
-      }
-    );
-
-    // Response interceptor for logging and error handling
-    this.axios.interceptors.response.use(
-      (response) => {
-        const { requestId, startTime } = (response.config as any).metadata || {};
-        const duration = startTime ? Date.now() - startTime : 0;
-
-        logger.apiResponse(
-          response.config.method?.toUpperCase() || 'GET',
-          `${response.config.baseURL}${response.config.url}`,
-          response.status,
-          duration,
-          { requestId }
-        );
-
-        return response;
-      },
-      async (error: AxiosError) => {
-        const { requestId, startTime } = (error.config as any)?.metadata || {};
-        const duration = startTime ? Date.now() - startTime : 0;
-
-        // Log the error
-        logger.apiResponse(
-          error.config?.method?.toUpperCase() || 'GET',
-          `${error.config?.baseURL}${error.config?.url}`,
-          error.response?.status || 0,
-          duration,
-          { requestId, error: error.message }
-        );
-
-        // Handle retry logic
-        if (this.shouldRetry(error)) {
-          return this.retryRequest(error);
+    if (Array.isArray(raw) && raw.length > 0) {
+      const first = raw[0] ?? {};
+      return {
+        message: first.message || 'Unknown Directus error',
+        extensions: {
+          code: first.extensions?.code || 'UNKNOWN',
+          collection: first.extensions?.collection,
+          field: first.extensions?.field
         }
-
-        // Parse and throw Directus-specific error
-        throw this.parseDirectusError(error);
-      }
-    );
-  }
-
-  private generateRequestId(): string {
-    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  private shouldRetry(error: AxiosError): boolean {
-    if (this.retryCount >= (this.config.retries || 3)) {
-      return false;
+      };
     }
 
-    // Retry on network errors or 5xx server errors
-    if (!error.response) {
-      return true; // Network error
+    if (raw && typeof raw === 'object' && (raw as any).error) {
+      const inner = (raw as any).error;
+      return {
+        message: inner.message || inner,
+        extensions: { code: inner.code || 'UNKNOWN' }
+      };
     }
 
-    const status = error.response.status;
-    return status >= 500 || status === 429; // Server error or rate limit
-  }
-
-  private async retryRequest(error: AxiosError): Promise<AxiosResponse> {
-    this.retryCount++;
-    
-    // Exponential backoff with jitter
-    const baseDelay = this.config.retryDelay || 1000;
-    const maxDelay = this.config.maxRetryDelay || 10000;
-    const delay = Math.min(
-      baseDelay * Math.pow(2, this.retryCount - 1) + Math.random() * 1000,
-      maxDelay
-    );
-
-    logger.info('Retrying request', {
-      attempt: this.retryCount,
-      delay,
-      maxRetries: this.config.retries
-    });
-
-    await new Promise(resolve => setTimeout(resolve, delay));
-
-    if (error.config) {
-      return this.axios.request(error.config);
+    if (raw && typeof raw === 'object' && typeof (raw as any).message === 'string' && raw !== error) {
+      return {
+        message: (raw as any).message,
+        extensions: { code: 'VALIDATION_ERROR' }
+      };
     }
 
-    throw error;
-  }
-
-  private parseDirectusError(error: AxiosError): DirectusError {
-    // Reset retry count on error parsing
-    this.retryCount = 0;
-
-    if (error.response?.data) {
-      const data = error.response.data as any;
-      
-      // Handle Directus API error format
-      if (data.errors && Array.isArray(data.errors)) {
-        const firstError = data.errors[0];
-        return {
-          message: firstError.message || 'Unknown Directus error',
-          extensions: {
-            code: firstError.extensions?.code || 'UNKNOWN',
-            collection: firstError.extensions?.collection,
-            field: firstError.extensions?.field
-          }
-        };
-      }
-
-      // Handle single error format
-      if (data.error) {
-        return {
-          message: data.error.message || data.error,
-          extensions: {
-            code: data.error.code || 'UNKNOWN'
-          }
-        };
-      }
-
-      // Handle validation errors
-      if (data.message) {
-        return {
-          message: data.message,
-          extensions: {
-            code: 'VALIDATION_ERROR'
-          }
-        };
-      }
-    }
-
-    // Fallback to axios error
     return {
-      message: error.message || 'Network error',
-      extensions: {
-        code: error.code || 'NETWORK_ERROR'
-      }
+      message: (error as Error)?.message || 'Network error',
+      extensions: { code: (error as any)?.code || 'NETWORK_ERROR' }
     };
   }
 
   // Core API methods
   async get<T = any>(endpoint: string, options: QueryOptions = {}): Promise<DirectusResponse<T>> {
-    const params = this.buildQueryParams(options);
-    const response = await this.axios.get(endpoint, { params });
-    return response.data;
+    return this.send<T>(customEndpoint({ path: endpoint, method: 'GET', params: this.toSdkQuery(options) }));
   }
 
-  async post<T = any>(endpoint: string, data?: any, config?: AxiosRequestConfig): Promise<DirectusResponse<T>> {
-    const response = await this.axios.post(endpoint, data, config);
-    return response.data;
+  async post<T = any>(endpoint: string, data?: any, config?: RequestConfig): Promise<DirectusResponse<T>> {
+    return this.send<T>(customEndpoint({
+      path: endpoint,
+      method: 'POST',
+      ...(data !== undefined && { body: typeof data === 'string' ? data : JSON.stringify(data) }),
+      ...(config?.headers && { headers: config.headers })
+    }));
   }
 
   async patch<T = any>(endpoint: string, data?: any): Promise<DirectusResponse<T>> {
-    const response = await this.axios.patch(endpoint, data);
-    return response.data;
+    return this.send<T>(customEndpoint({
+      path: endpoint,
+      method: 'PATCH',
+      ...(data !== undefined && { body: typeof data === 'string' ? data : JSON.stringify(data) })
+    }));
   }
 
   async delete<T = any>(endpoint: string): Promise<DirectusResponse<T>> {
-    const response = await this.axios.delete(endpoint);
-    return response.data;
+    return this.send<T>(customEndpoint({ path: endpoint, method: 'DELETE' }));
   }
+
 
   // Collection operations
   async getCollections(): Promise<DirectusResponse> {
@@ -459,31 +342,31 @@ export class DirectusClient {
 
   // File operations
   async uploadFile(file: Buffer | string, options: UploadOptions = {}): Promise<UploadResult> {
+    const path = await import('node:path');
+    const fs = await import('node:fs');
+
     const formData = new FormData();
-    
+
     if (Buffer.isBuffer(file)) {
-      formData.append('file', file, options.filename || 'upload');
+      formData.append('file', new Blob([new Uint8Array(file)]), options.filename || 'upload');
     } else {
-      // Assume it's a file path
-      const fs = await import('fs');
-      const path = await import('path');
-      formData.append('file', fs.createReadStream(file), options.filename || path.basename(file));
+      // A file path: openAsBlob streams from disk rather than buffering it.
+      const blob = await fs.promises.open(file).then(async (handle) => {
+        try {
+          return new Blob([new Uint8Array(await handle.readFile())]);
+        } finally {
+          await handle.close();
+        }
+      });
+      formData.append('file', blob, options.filename || path.basename(file));
     }
 
     if (options.title) formData.append('title', options.title);
     if (options.folder) formData.append('folder', options.folder);
     if (options.storage) formData.append('storage', options.storage);
-    if (options.metadata) {
-      formData.append('metadata', JSON.stringify(options.metadata));
-    }
+    if (options.metadata) formData.append('metadata', JSON.stringify(options.metadata));
 
-    const response = await this.post('/files', formData, {
-      headers: {
-        ...formData.getHeaders(),
-        'Content-Type': 'multipart/form-data'
-      }
-    });
-
+    const response = await this.send<UploadResult>(uploadFiles(formData));
     return response.data;
   }
 
