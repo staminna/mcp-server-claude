@@ -85,7 +85,7 @@ describe('MCP server e2e (features enabled)', () => {
   it('reports its server identity', () => {
     expect(client.getServerVersion()).toMatchObject({
       name: 'directus-mcp-server-enhanced',
-      version: '2.0.0',
+      version: '12.3.0',
     });
   });
 

@@ -22,7 +22,7 @@ npm whoami                 # must be logged in as the @staminna owner
 npm run test:all           # full suite must be green
 npm pack --dry-run         # sanity-check the tarball contents (dist/, README, LICENSE)
 npm publish                # prepublishOnly runs clean + build automatically
-npm view @staminna/directus-mcp-server version   # verify 12.0.0
+npm view @staminna/directus-mcp-server version   # verify 12.3.0
 ```
 
 ## 2. Publish to the MCP Registry (when ready)
@@ -44,7 +44,11 @@ Verify at: https://registry.modelcontextprotocol.io/v0/servers?search=directus
 
 ## 3. Each future release
 
-1. Bump `version` in **both** `package.json` and `server.json` (keep them equal).
+1. Bump `version` in **all four** places, keeping them equal:
+   - `package.json` -> `version`
+   - `server.json` -> `version`
+   - `server.json` -> `packages[0].version`
+   - `src/version.ts` -> `SERVER_VERSION` (the identity reported over MCP)
 2. `npm run test:all`
 3. `npm publish`
 4. `mcp-publisher publish`

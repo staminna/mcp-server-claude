@@ -18,6 +18,7 @@ import { SchemaTools } from './tools/schema-tools.js';
 import { DiagnosticTools } from './tools/diagnostic-tools.js';
 import { logger } from './utils/logger.js';
 import { DirectusConfig } from './types/directus.js';
+import { SERVER_NAME, SERVER_VERSION } from './version.js';
 
 export interface ServerDeps {
   directusClient: DirectusClient;
@@ -837,8 +838,8 @@ export function createServer(
 ): { server: Server; deps: ServerDeps } {
   const server = new Server(
     {
-      name: 'directus-mcp-server-enhanced',
-      version: '2.0.0',
+      name: SERVER_NAME,
+      version: SERVER_VERSION,
     },
     {
       capabilities: {

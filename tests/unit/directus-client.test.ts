@@ -107,7 +107,7 @@ describe('constructor and auth', () => {
     await makeClient().getServerInfo();
 
     expect(auth).toBe('Bearer test-token');
-    expect(userAgent).toBe('Directus-MCP-Server/1.0.0');
+    expect(userAgent).toBe('directus-mcp-server-enhanced/12.3.0');
   });
 
   it('omits the Authorization header when no token is configured', async () => {

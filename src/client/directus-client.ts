@@ -3,6 +3,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import FormData from 'form-data';
 import { logger } from '../utils/logger.js';
+import { SERVER_NAME, SERVER_VERSION } from '../version.js';
 import {
   DirectusConfig,
   DirectusResponse,
@@ -38,7 +39,7 @@ export class DirectusClient {
       timeout: this.config.timeout,
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'Directus-MCP-Server/1.0.0'
+        'User-Agent': `${SERVER_NAME}/${SERVER_VERSION}`
       },
       ...(httpsAgent && { httpsAgent })
     });

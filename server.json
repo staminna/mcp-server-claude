@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
   "name": "io.github.staminna/directus-mcp-server",
-  "description": "Enhanced MCP server for Directus with TypeScript, WebSocket, and full API coverage",
+  "description": "Enhanced MCP server for Directus 12.3 with TypeScript, WebSocket, and full API coverage",
   "repository": {
     "url": "https://github.com/staminna/mcp-server-claude",
     "source": "github"
   },
-  "version": "12.0.0",
+  "version": "12.3.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@staminna/directus-mcp-server",
-      "version": "12.0.0",
+      "version": "12.3.0",
       "transport": {
         "type": "stdio"
       },
