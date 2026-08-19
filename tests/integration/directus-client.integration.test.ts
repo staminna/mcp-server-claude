@@ -53,9 +53,23 @@ describe('real-socket request shape', () => {
     expect(req?.body).toEqual({ title: 'Wired', status: 'draft' });
   });
 
-  it('joins ids in the deleteItems path', async () => {
+  it('sends deleteItems keys in the body, not the path', async () => {
     await makeClient().deleteItems('articles', [1, 2, 3]);
-    expect(mock.lastRequest('DELETE', '/items/articles/1,2,3')).toBeDefined();
+    const req = mock.lastRequest('DELETE', '/items/articles');
+    expect(req?.path).toBe('/items/articles');
+    expect(req?.body).toEqual({ keys: [1, 2, 3] });
+  });
+
+  it('issues no request when deleteItems has nothing to target', async () => {
+    const result = await makeClient().deleteItems('articles', []);
+    expect(result).toEqual({ data: null });
+    expect(mock.requests.filter((r) => r.method === 'DELETE')).toHaveLength(0);
+  });
+
+  it('deletes by query when given one', async () => {
+    await makeClient().deleteItems('articles', { limit: -1 });
+    const req = mock.lastRequest('DELETE', '/items/articles');
+    expect(req?.body).toEqual({ query: { limit: -1 } });
   });
 
   it('fetches server info', async () => {

@@ -164,16 +164,24 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'delete_items',
-    description: 'Delete items from a collection with optional cascade',
+    description:
+      'Delete items from a collection, either by explicit IDs or by a query. ' +
+      'Providing neither deletes nothing.',
     inputSchema: {
       type: 'object',
       properties: {
         collection: { type: 'string', description: 'Collection name' },
-        ids: { type: 'array', items: { type: ['string', 'number'] }, description: 'Item IDs to delete' },
+        ids: { type: 'array', items: { type: ['string', 'number'] }, description: 'Explicit item IDs to delete' },
+        query: {
+          type: 'object',
+          description:
+            'Directus query selecting the items to delete, e.g. { "filter": { "status": { "_eq": "archived" } } }. ' +
+            'Mutually exclusive with ids. Use { "limit": -1 } to deliberately target every item.'
+        },
         confirm: { type: 'boolean', description: 'Confirm deletion' },
-        cascadeDelete: { type: 'boolean', description: 'Delete related items' }
+        cascadeDelete: { type: 'boolean', description: 'Delete related items (requires ids)' }
       },
-      required: ['collection', 'ids'],
+      required: ['collection'],
     },
   },
   // Field Management

@@ -307,17 +307,102 @@ describe('CollectionTools', () => {
       expect(text(result)).toContain('"title": "Edited"');
     });
 
+    it('is a no-op when data is empty', async () => {
+      const stub = makeClientStub();
+      const tools = new CollectionTools(stub);
+
+      const result = await tools.updateItem({ collection: 'articles', id: 7, data: {} });
+
+      expect(text(result)).toContain('Nothing to update');
+      expect(stub.updateItem).not.toHaveBeenCalled();
+    });
+
     it('returns an error message when the client rejects', async () => {
       const stub = makeClientStub();
       stub.updateItem.mockRejectedValue(new Error('update boom'));
       const tools = new CollectionTools(stub);
 
-      const result = await tools.updateItem({ collection: 'articles', id: 7, data: {} });
+      const result = await tools.updateItem({ collection: 'articles', id: 7, data: { title: 'x' } });
       expect(text(result)).toContain('Error updating item 7 in collection "articles": update boom');
     });
   });
 
   describe('deleteItems', () => {
+    it('is a no-op when neither ids nor query are given', async () => {
+      const stub = makeClientStub();
+      const tools = new CollectionTools(stub);
+
+      const result = await tools.deleteItems({ collection: 'articles', confirm: true });
+
+      expect(text(result)).toContain('Nothing to delete');
+      expect(text(result)).toContain('"limit": -1');
+      expect(stub.deleteItems).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op for an explicitly empty id list', async () => {
+      const stub = makeClientStub();
+      const tools = new CollectionTools(stub);
+
+      const result = await tools.deleteItems({ collection: 'articles', ids: [], confirm: true });
+
+      expect(text(result)).toContain('Nothing to delete');
+      expect(stub.deleteItems).not.toHaveBeenCalled();
+    });
+
+    it('rejects ids and query together', async () => {
+      const stub = makeClientStub();
+      const tools = new CollectionTools(stub);
+
+      const result = await tools.deleteItems({
+        collection: 'articles',
+        ids: [1],
+        query: { filter: { status: { _eq: 'archived' } } },
+        confirm: true,
+      });
+
+      expect(text(result)).toContain('not both');
+      expect(stub.deleteItems).not.toHaveBeenCalled();
+    });
+
+    it('rejects cascadeDelete combined with a query', async () => {
+      const stub = makeClientStub();
+      const tools = new CollectionTools(stub);
+
+      const result = await tools.deleteItems({
+        collection: 'articles',
+        query: { limit: -1 },
+        cascadeDelete: true,
+        confirm: true,
+      });
+
+      expect(text(result)).toContain('cascadeDelete');
+      expect(stub.deleteItems).not.toHaveBeenCalled();
+    });
+
+    it('deletes by query when confirmed', async () => {
+      const stub = makeClientStub();
+      const tools = new CollectionTools(stub);
+
+      const result = await tools.deleteItems({
+        collection: 'articles',
+        query: { limit: -1 },
+        confirm: true,
+      });
+
+      expect(stub.deleteItems).toHaveBeenCalledWith('articles', { limit: -1 });
+      expect(text(result)).toContain('every item matching the query');
+    });
+
+    it('warns before deleting by query without confirm', async () => {
+      const stub = makeClientStub();
+      const tools = new CollectionTools(stub);
+
+      const result = await tools.deleteItems({ collection: 'articles', query: { limit: -1 } });
+
+      expect(text(result)).toContain('Warning');
+      expect(stub.deleteItems).not.toHaveBeenCalled();
+    });
+
     it('returns a warning without confirm and does not delete', async () => {
       const stub = makeClientStub();
       const tools = new CollectionTools(stub);
@@ -884,7 +969,7 @@ describe('CollectionTools', () => {
       expect(out).toContain('**Deleted**: 0');
     });
 
-    it('returns an error message when operations are malformed', async () => {
+    it('is a no-op when operations are missing entirely', async () => {
       const stub = makeClientStub();
       const tools = new CollectionTools(stub);
 
@@ -893,7 +978,10 @@ describe('CollectionTools', () => {
         operations: undefined as any,
       });
 
-      expect(text(result)).toContain('Error executing bulk operations on collection "articles"');
+      expect(text(result)).toContain('Nothing to do');
+      expect(stub.createItem).not.toHaveBeenCalled();
+      expect(stub.updateItem).not.toHaveBeenCalled();
+      expect(stub.deleteItems).not.toHaveBeenCalled();
     });
   });
 });

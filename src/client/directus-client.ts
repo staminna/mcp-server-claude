@@ -13,6 +13,7 @@ import {
   rest,
   staticToken,
   customEndpoint,
+  deleteItems as deleteItemsCommand,
   uploadFiles,
   isDirectusError,
   type RestCommand,
@@ -279,8 +280,30 @@ export class DirectusClient {
     return this.delete(`/items/${collection}/${id}`);
   }
 
-  async deleteItems(collection: string, ids: (string | number)[]): Promise<DirectusResponse> {
-    return this.delete(`/items/${collection}/${ids.join(',')}`);
+  /**
+   * Delete items by explicit keys, or by a query selecting them.
+   *
+   * Directus 12.3.0 (#27759) stopped treating "nothing to target" as "target
+   * everything". Nothing here is a no-op: it returns without issuing a request
+   * rather than emitting `DELETE /items/{collection}/`, which the previous
+   * comma-joined path produced for an empty id list.
+   *
+   * To delete every item deliberately, pass `{ limit: -1 }` as the query.
+   */
+  async deleteItems(
+    collection: string,
+    keysOrQuery: (string | number)[] | QueryOptions
+  ): Promise<DirectusResponse<null>> {
+    const isKeys = Array.isArray(keysOrQuery);
+
+    if (isKeys ? keysOrQuery.length === 0 : Object.keys(keysOrQuery ?? {}).length === 0) {
+      logger.info('deleteItems called with nothing to target; skipping request', { collection });
+      return { data: null };
+    }
+
+    return this.send<null>(
+      deleteItemsCommand(collection, isKeys ? keysOrQuery : (this.toSdkQuery(keysOrQuery) as any))
+    );
   }
 
   // Bulk operations

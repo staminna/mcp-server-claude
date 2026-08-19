@@ -295,6 +295,16 @@ export class CollectionTools {
     logger.startTimer(operationId);
 
     try {
+      // Directus 12.3.0 (#27759): nothing to write is a no-op, not a request.
+      if (!args.data || Object.keys(args.data).length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Nothing to update: \`data\` was empty, so no request was sent.`
+          }]
+        };
+      }
+
       logger.toolStart('update_item', args);
 
       const response = await this.client.updateItem(args.collection, args.id, args.data);
@@ -330,23 +340,66 @@ export class CollectionTools {
 
   async deleteItems(args: {
     collection: string;
-    ids: (string | number)[];
+    ids?: (string | number)[];
+    query?: Record<string, any>;
     confirm?: boolean;
     cascadeDelete?: boolean;
   }): Promise<any> {
     const operationId = `delete_items_${Date.now()}`;
     logger.startTimer(operationId);
 
+    const ids = args.ids ?? [];
+    const query = args.query ?? {};
+    const hasIds = ids.length > 0;
+    const hasQuery = Object.keys(query).length > 0;
+
     try {
-      if (!args.confirm) {
-        // Check for related items that would be affected
-        const relatedInfo = args.cascadeDelete ? await this.checkRelatedItems(args.collection, args.ids) : null;
-        
+      // Directus 12.3.0 (#27759): contradictory options are an error, and
+      // nothing to target is a no-op rather than a fallback to every item.
+      if (hasIds && hasQuery) {
         return {
           content: [{
             type: 'text',
-            text: `⚠️ **Warning**: This will permanently delete ${args.ids.length} item(s) from collection "${args.collection}".\n\n` +
-                  `Items to delete: ${args.ids.join(', ')}\n\n` +
+            text: `❌ Provide either \`ids\` or \`query\`, not both. ` +
+                  `\`ids\` deletes specific items; \`query\` deletes everything it matches.`
+          }]
+        };
+      }
+
+      if (args.cascadeDelete && hasQuery) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ \`cascadeDelete\` needs explicit \`ids\` — related items are resolved per item, ` +
+                  `so it cannot be combined with \`query\`.`
+          }]
+        };
+      }
+
+      if (!hasIds && !hasQuery) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Nothing to delete: neither \`ids\` nor \`query\` was provided, so no request was sent.\n\n` +
+                  `To delete every item in "${args.collection}", pass \`query: { "limit": -1 }\` explicitly.`
+          }]
+        };
+      }
+
+      const target = hasIds
+        ? `${ids.length} item(s)`
+        : 'every item matching the query';
+
+      if (!args.confirm) {
+        const relatedInfo = args.cascadeDelete ? await this.checkRelatedItems(args.collection, ids) : null;
+
+        return {
+          content: [{
+            type: 'text',
+            text: `⚠️ **Warning**: This will permanently delete ${target} from collection "${args.collection}".\n\n` +
+                  (hasIds
+                    ? `Items to delete: ${ids.join(', ')}\n\n`
+                    : `Query: \`${JSON.stringify(query)}\`\n\n`) +
                   (relatedInfo ? `**Related items that will be affected:**\n${relatedInfo}\n\n` : '') +
                   `To proceed, call this tool again with \`confirm: true\`.`
           }]
@@ -356,31 +409,32 @@ export class CollectionTools {
       logger.toolStart('delete_items', args);
 
       if (args.cascadeDelete) {
-        await this.cascadeDeleteItems(args.collection, args.ids);
+        await this.cascadeDeleteItems(args.collection, ids);
       } else {
-        await this.client.deleteItems(args.collection, args.ids);
+        await this.client.deleteItems(args.collection, hasIds ? ids : query);
       }
 
       const duration = logger.endTimer(operationId);
-      logger.toolEnd('delete_items', duration, true, { 
+      logger.toolEnd('delete_items', duration, true, {
         collection: args.collection,
-        count: args.ids.length,
+        count: hasIds ? ids.length : undefined,
+        byQuery: hasQuery,
         cascade: args.cascadeDelete
       });
 
       return {
         content: [{
           type: 'text',
-          text: `Successfully deleted ${args.ids.length} item(s) from collection "${args.collection}"${args.cascadeDelete ? ' with cascade' : ''}.`
+          text: `Successfully deleted ${target} from collection "${args.collection}"${args.cascadeDelete ? ' with cascade' : ''}.`
         }]
       };
     } catch (error) {
       logger.endTimer(operationId);
-      logger.toolError('delete_items', error as Error, { 
+      logger.toolError('delete_items', error as Error, {
         collection: args.collection,
-        count: args.ids.length
+        count: ids.length
       });
-      
+
       return {
         content: [{
           type: 'text',
@@ -608,6 +662,25 @@ export class CollectionTools {
     logger.startTimer(operationId);
 
     try {
+      const ops = args.operations ?? {};
+      const counts = {
+        create: ops.create?.length ?? 0,
+        update: ops.update?.length ?? 0,
+        delete: ops.delete?.length ?? 0
+      };
+
+      // Directus 12.3.0 (#27759): nothing to target is a no-op rather than a
+      // silent fallback to every item.
+      if (counts.create === 0 && counts.update === 0 && counts.delete === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Nothing to do: \`operations\` contained no create, update or delete entries, ` +
+                  `so no request was sent.`
+          }]
+        };
+      }
+
       logger.toolStart('bulk_operations', args);
 
       const results: any = {

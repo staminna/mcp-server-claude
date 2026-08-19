@@ -432,7 +432,7 @@ describe('endpoint wrappers hit the expected method and path', () => {
     { name: 'updateItem', call: (c) => c.updateItem('articles', 1, { title: 'b' }), method: 'PATCH', path: '/items/articles/1' },
     { name: 'updateItems', call: (c) => c.updateItems('articles', [1, 2], { status: 'archived' }), method: 'PATCH', path: '/items/articles' },
     { name: 'deleteItem', call: (c) => c.deleteItem('articles', 1), method: 'DELETE', path: '/items/articles/1' },
-    { name: 'deleteItems', call: (c) => c.deleteItems('articles', [1, 2, 3]), method: 'DELETE', path: '/items/articles/1,2,3' },
+    { name: 'deleteItems', call: (c) => c.deleteItems('articles', [1, 2, 3]), method: 'DELETE', path: '/items/articles' },
     { name: 'getFiles', call: (c) => c.getFiles(), method: 'GET', path: '/files' },
     { name: 'deleteFile', call: (c) => c.deleteFile('file-0001'), method: 'DELETE', path: '/files/file-0001' },
     { name: 'getUsers', call: (c) => c.getUsers(), method: 'GET', path: '/users' },
@@ -520,7 +520,7 @@ describe('bulkOperation', () => {
         const data = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json(envelope({ id: Number(params.id), ...data }));
       }),
-      http.delete(`${DIRECTUS_URL}/items/articles/:ids`, () => HttpResponse.json(envelope(null)))
+      http.delete(`${DIRECTUS_URL}/items/articles`, () => HttpResponse.json(envelope(null)))
     );
 
     const result = await makeClient().bulkOperation<{ title?: string; status?: string }>('articles', {
