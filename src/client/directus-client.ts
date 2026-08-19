@@ -268,8 +268,18 @@ export class DirectusClient {
     return this.post(`/items/${collection}`, data);
   }
 
-  async updateItem<T = any>(collection: string, id: string | number, data: Partial<T>): Promise<DirectusResponse<T>> {
-    return this.patch(`/items/${collection}/${id}`, data);
+  async updateItem<T = any>(
+    collection: string,
+    id: string | number,
+    data: Partial<T>,
+    options?: QueryOptions
+  ): Promise<DirectusResponse<T>> {
+    return this.send<T>(customEndpoint({
+      path: `/items/${collection}/${id}`,
+      method: 'PATCH',
+      body: JSON.stringify(data),
+      ...(options && { params: this.toSdkQuery(options) })
+    }));
   }
 
   async updateItems<T = any>(collection: string, ids: (string | number)[], data: Partial<T>): Promise<DirectusResponse<T[]>> {

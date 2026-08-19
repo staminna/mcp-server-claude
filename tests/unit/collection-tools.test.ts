@@ -207,6 +207,22 @@ describe('CollectionTools', () => {
   });
 
   describe('getCollectionItems', () => {
+    it('forwards version and version_raw as query options', async () => {
+      const stub = makeClientStub();
+      const tools = new CollectionTools(stub);
+
+      await tools.getCollectionItems({
+        collection: 'articles',
+        version: 'published',
+        version_raw: true,
+      });
+
+      expect(stub.getItems).toHaveBeenCalledWith(
+        'articles',
+        expect.objectContaining({ version: 'published', versionRaw: true })
+      );
+    });
+
     it('passes all provided query options through to getItems', async () => {
       const stub = makeClientStub();
       stub.getItems.mockResolvedValue(envelope(ITEMS_ARTICLES, { total_count: 30, filter_count: 3 }));
@@ -305,6 +321,35 @@ describe('CollectionTools', () => {
       expect(stub.updateItem).toHaveBeenCalledWith('articles', 7, { title: 'Edited' });
       expect(text(result)).toContain('Item 7 updated successfully in "articles"');
       expect(text(result)).toContain('"title": "Edited"');
+    });
+
+    it('refuses to write to the published version', async () => {
+      const stub = makeClientStub();
+      const tools = new CollectionTools(stub);
+
+      const result = await tools.updateItem({
+        collection: 'articles',
+        id: 7,
+        data: { title: 'Edited' },
+        version: 'published',
+      });
+
+      expect(text(result)).toContain('read-only');
+      expect(stub.updateItem).not.toHaveBeenCalled();
+    });
+
+    it('forwards a draft version key to the client', async () => {
+      const stub = makeClientStub();
+      const tools = new CollectionTools(stub);
+
+      await tools.updateItem({
+        collection: 'articles',
+        id: 7,
+        data: { title: 'Edited' },
+        version: 'draft-a',
+      });
+
+      expect(stub.updateItem).toHaveBeenCalledWith('articles', 7, { title: 'Edited' }, { version: 'draft-a' });
     });
 
     it('is a no-op when data is empty', async () => {

@@ -108,6 +108,16 @@ export const TOOL_DEFINITIONS = [
         sort: { type: 'array', items: { type: 'string' }, description: 'Sort fields' },
         fields: { type: 'array', items: { type: 'string' }, description: 'Fields to return' },
         search: { type: 'string', description: 'Search query' },
+        version: {
+          type: 'string',
+          description:
+            "Content version to read from a versioned collection. Use 'published' for the published " +
+            'version, or a version key for a draft.'
+        },
+        version_raw: {
+          type: 'boolean',
+          description: 'Return the raw version delta instead of the item merged with its version'
+        },
       },
       required: ['collection'],
     },
@@ -151,13 +161,21 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'update_item',
-    description: 'Update an existing item in a collection',
+    description:
+      'Update an existing item in a collection. In versioned collections the published item is ' +
+      'read-only — target a draft version instead.',
     inputSchema: {
       type: 'object',
       properties: {
         collection: { type: 'string', description: 'Collection name' },
         id: { type: ['string', 'number'], description: 'Item ID' },
-        data: { type: 'object', description: 'Updated data' }
+        data: { type: 'object', description: 'Updated data' },
+        version: {
+          type: 'string',
+          description:
+            'Draft version key to write into. Published items in versioned collections cannot be ' +
+            'edited directly.'
+        }
       },
       required: ['collection', 'id', 'data'],
     },

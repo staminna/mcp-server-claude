@@ -201,6 +201,8 @@ export class CollectionTools {
     sort?: string[];
     fields?: string[];
     search?: string;
+    version?: string;
+    version_raw?: boolean;
   }): Promise<any> {
     const operationId = `get_collection_items_${Date.now()}`;
     logger.startTimer(operationId);
@@ -215,6 +217,8 @@ export class CollectionTools {
         ...(args.sort && { sort: args.sort }),
         ...(args.fields && { fields: args.fields }),
         ...(args.search && { search: args.search }),
+        ...(args.version && { version: args.version }),
+        ...(args.version_raw !== undefined && { versionRaw: args.version_raw }),
         meta: ['total_count', 'filter_count']
       };
 
@@ -290,11 +294,25 @@ export class CollectionTools {
     collection: string;
     id: string | number;
     data: Record<string, any>;
+    version?: string;
   }): Promise<any> {
     const operationId = `update_item_${Date.now()}`;
     logger.startTimer(operationId);
 
     try {
+      // Directus 12 makes published items in versioned collections read-only:
+      // edits have to go through a draft version.
+      if (args.version === 'published') {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Published items in versioned collections are read-only in Directus 12.\n\n` +
+                  `Target a draft version instead — pass its version key as \`version\`, ` +
+                  `then promote the draft when it is ready.`
+          }]
+        };
+      }
+
       // Directus 12.3.0 (#27759): nothing to write is a no-op, not a request.
       if (!args.data || Object.keys(args.data).length === 0) {
         return {
@@ -307,7 +325,9 @@ export class CollectionTools {
 
       logger.toolStart('update_item', args);
 
-      const response = await this.client.updateItem(args.collection, args.id, args.data);
+      const response = args.version
+        ? await this.client.updateItem(args.collection, args.id, args.data, { version: args.version })
+        : await this.client.updateItem(args.collection, args.id, args.data);
       const item = response.data;
 
       const duration = logger.endTimer(operationId);
