@@ -19,6 +19,7 @@ import { DiagnosticTools } from './tools/diagnostic-tools.js';
 import { logger } from './utils/logger.js';
 import { DirectusConfig } from './types/directus.js';
 import { SERVER_NAME, SERVER_VERSION } from './version.js';
+import { searchTools, type ToolDefinition } from './tools/tool-search.js';
 
 export interface ServerDeps {
   directusClient: DirectusClient;
@@ -76,6 +77,12 @@ export const TOOL_DEFINITIONS = [
   // Collection Management
   {
     name: 'list_collections',
+    annotations: {
+      title: "Directus - List Collections",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["collections", "list", "tables", "browse", "discover"],
     description: 'List all collections in the Directus instance',
     inputSchema: {
       type: 'object',
@@ -86,6 +93,12 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_collection_schema',
+    annotations: {
+      title: "Directus - Collection Schema",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["schema", "fields", "structure", "columns", "describe"],
     description: 'Get the schema for a specific collection',
     inputSchema: {
       type: 'object',
@@ -97,6 +110,12 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_collection_items',
+    annotations: {
+      title: "Directus - Read Items",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["items", "rows", "read", "query", "filter", "search", "list", "version"],
     description: 'Get items from a collection with optional filtering and pagination',
     inputSchema: {
       type: 'object',
@@ -124,6 +143,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'create_collection',
+    annotations: {
+      title: "Directus - Create Collection",
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true
+    },
+    keywords: ["collection", "create", "table", "new", "model"],
     description: 'Create a new collection with optional fields',
     inputSchema: {
       type: 'object',
@@ -137,6 +163,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'delete_collection',
+    annotations: {
+      title: "Directus - Delete Collection",
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true
+    },
+    keywords: ["collection", "delete", "drop", "remove", "destroy"],
     description: 'Delete a collection (requires confirmation)',
     inputSchema: {
       type: 'object',
@@ -149,6 +182,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'create_item',
+    annotations: {
+      title: "Directus - Create Item",
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true
+    },
+    keywords: ["item", "row", "create", "insert", "add", "record"],
     description: 'Create a new item in a collection',
     inputSchema: {
       type: 'object',
@@ -161,6 +201,14 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'update_item',
+    annotations: {
+      title: "Directus - Update Item",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true
+    },
+    keywords: ["item", "row", "update", "edit", "patch", "modify", "version", "draft"],
     description:
       'Update an existing item in a collection. In versioned collections the published item is ' +
       'read-only — target a draft version instead.',
@@ -182,6 +230,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'delete_items',
+    annotations: {
+      title: "Directus - Delete Items",
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true
+    },
+    keywords: ["items", "rows", "delete", "remove", "destroy", "bulk"],
     description:
       'Delete items from a collection, either by explicit IDs or by a query. ' +
       'Providing neither deletes nothing.',
@@ -205,6 +260,13 @@ export const TOOL_DEFINITIONS = [
   // Field Management
   {
     name: 'create_field',
+    annotations: {
+      title: "Directus - Create Field",
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true
+    },
+    keywords: ["field", "column", "create", "add", "schema"],
     description: 'Create a new field in a collection',
     inputSchema: {
       type: 'object',
@@ -225,6 +287,14 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'update_field',
+    annotations: {
+      title: "Directus - Update Field",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true
+    },
+    keywords: ["field", "column", "update", "edit", "alter", "schema"],
     description: 'Update an existing field in a collection',
     inputSchema: {
       type: 'object',
@@ -245,6 +315,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'delete_field',
+    annotations: {
+      title: "Directus - Delete Field",
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true
+    },
+    keywords: ["field", "column", "delete", "drop", "remove"],
     description: 'Delete a field from a collection (requires confirmation)',
     inputSchema: {
       type: 'object',
@@ -258,6 +335,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'bulk_operations',
+    annotations: {
+      title: "Directus - Bulk Operations",
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true
+    },
+    keywords: ["bulk", "batch", "mass", "create", "update", "delete"],
     description: 'Execute bulk create, update, and delete operations',
     inputSchema: {
       type: 'object',
@@ -279,6 +363,12 @@ export const TOOL_DEFINITIONS = [
   // Schema Analysis and Relationship Management
   {
     name: 'analyze_collection_schema',
+    annotations: {
+      title: "Directus - Analyze Schema",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["analyze", "schema", "inspect", "relations", "audit"],
     description: 'Analyze collection schema with relationship mapping and validation',
     inputSchema: {
       type: 'object',
@@ -292,6 +382,12 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'analyze_relationships',
+    annotations: {
+      title: "Directus - Analyze Relationships",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["relationships", "relations", "foreign", "key", "graph", "analyze"],
     description: 'Analyze relationships across collections',
     inputSchema: {
       type: 'object',
@@ -303,6 +399,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'create_relationship',
+    annotations: {
+      title: "Directus - Create Relationship",
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true
+    },
+    keywords: ["relationship", "relation", "o2m", "m2o", "m2m", "m2a", "link"],
     description: 'Create relationships between collections (O2O, O2M, M2O, M2M, M2A)',
     inputSchema: {
       type: 'object',
@@ -327,6 +430,12 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'validate_collection_schema',
+    annotations: {
+      title: "Directus - Validate Schema",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["validate", "schema", "check", "lint", "constraints"],
     description: 'Validate collection schema and relationships',
     inputSchema: {
       type: 'object',
@@ -340,6 +449,12 @@ export const TOOL_DEFINITIONS = [
   // Diagnostic Tools
   {
     name: 'diagnose_collection_access',
+    annotations: {
+      title: "Directus - Diagnose Access",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["diagnose", "access", "permissions", "troubleshoot", "debug"],
     description: 'Diagnose collection access issues and permissions',
     inputSchema: {
       type: 'object',
@@ -354,6 +469,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'refresh_collection_cache',
+    annotations: {
+      title: "Directus - Refresh Cache",
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true
+    },
+    keywords: ["cache", "refresh", "clear", "reload", "invalidate"],
     description: 'Refresh Directus collection cache and verify access',
     inputSchema: {
       type: 'object',
@@ -364,6 +486,12 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'validate_collection_creation',
+    annotations: {
+      title: "Directus - Validate Creation",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["validate", "verify", "collection", "created", "check"],
     description: 'Validate that a newly created collection is properly accessible',
     inputSchema: {
       type: 'object',
@@ -377,6 +505,12 @@ export const TOOL_DEFINITIONS = [
   // User Management
   {
     name: 'get_users',
+    annotations: {
+      title: "Directus - List Users",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["users", "list", "accounts", "people", "directory"],
     description: 'Get all users with optional filtering and pagination',
     inputSchema: {
       type: 'object',
@@ -392,6 +526,12 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_user',
+    annotations: {
+      title: "Directus - Read User",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["user", "account", "profile", "fetch", "lookup"],
     description: 'Get a specific user by ID',
     inputSchema: {
       type: 'object',
@@ -405,6 +545,12 @@ export const TOOL_DEFINITIONS = [
   // File Management
   {
     name: 'get_files',
+    annotations: {
+      title: "Directus - List Files",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["files", "assets", "media", "uploads", "list"],
     description: 'Get files with optional filtering and pagination',
     inputSchema: {
       type: 'object',
@@ -421,6 +567,12 @@ export const TOOL_DEFINITIONS = [
   // Flow Management
   {
     name: 'get_flows',
+    annotations: {
+      title: "Directus - List Flows",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["flows", "automation", "workflows", "list"],
     description: 'Get flows with optional filtering and pagination',
     inputSchema: {
       type: 'object',
@@ -437,6 +589,12 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_flow',
+    annotations: {
+      title: "Directus - Read Flow",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["flow", "automation", "workflow", "detail", "operations"],
     description: 'Get a specific flow by ID with optional operations',
     inputSchema: {
       type: 'object',
@@ -449,6 +607,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'create_flow',
+    annotations: {
+      title: "Directus - Create Flow",
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true
+    },
+    keywords: ["flow", "automation", "workflow", "create", "trigger"],
     description: 'Create a new automation flow',
     inputSchema: {
       type: 'object',
@@ -480,6 +645,14 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'update_flow',
+    annotations: {
+      title: "Directus - Update Flow",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true
+    },
+    keywords: ["flow", "automation", "workflow", "update", "edit"],
     description: 'Update an existing flow',
     inputSchema: {
       type: 'object',
@@ -502,6 +675,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'delete_flow',
+    annotations: {
+      title: "Directus - Delete Flow",
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true
+    },
+    keywords: ["flow", "automation", "workflow", "delete", "remove"],
     description: 'Delete a flow and all its operations (requires confirmation)',
     inputSchema: {
       type: 'object',
@@ -514,6 +694,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'trigger_flow',
+    annotations: {
+      title: "Directus - Trigger Flow",
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true
+    },
+    keywords: ["flow", "trigger", "run", "execute", "webhook", "automation"],
     description: 'Manually trigger a flow execution',
     inputSchema: {
       type: 'object',
@@ -526,6 +713,12 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_operations',
+    annotations: {
+      title: "Directus - List Operations",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["operations", "flow", "steps", "automation", "list"],
     description: 'Get flow operations with optional filtering by flow',
     inputSchema: {
       type: 'object',
@@ -533,6 +726,149 @@ export const TOOL_DEFINITIONS = [
         flow_id: { type: 'string', description: 'Filter operations by flow ID' },
         limit: { type: 'number', description: 'Number of operations to return (default: 50)' },
       },
+    },
+  },
+  // Schema snapshot / diff / apply (Directus 12.2+)
+  {
+    name: 'get_schema_snapshot',
+    annotations: {
+      title: "Directus - Schema Snapshot",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["schema", "snapshot", "export", "data", "model", "backup", "migration"],
+    description:
+      'Read a snapshot of the data model (collections, fields, relations). Pass ' +
+      'include_collections or exclude_collections for a partial snapshot.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        include_collections: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Restrict the snapshot to these collections. Mutually exclusive with exclude_collections.'
+        },
+        exclude_collections: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Exclude these collections. Mutually exclusive with include_collections.'
+        },
+      },
+    },
+  },
+  {
+    name: 'diff_schema',
+    annotations: {
+      title: "Directus - Schema Diff",
+      readOnlyHint: true,
+      openWorldHint: true
+    },
+    keywords: ["schema", "diff", "compare", "changes", "migration", "preview"],
+    description:
+      'Compare a schema snapshot against the current data model and report what applying it ' +
+      'would change. Read-only — nothing is modified.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        snapshot: { type: 'object', description: 'A snapshot as returned by get_schema_snapshot' },
+        mode: {
+          type: 'string',
+          enum: ['merge', 'mirror'],
+          description:
+            "'mirror' (default) reports every operation including deletions; 'merge' excludes " +
+            'deletions for an additive diff.'
+        },
+        force: { type: 'boolean', description: 'Bypass the Directus version and database vendor checks' },
+      },
+      required: ['snapshot'],
+    },
+  },
+  {
+    name: 'apply_schema',
+    annotations: {
+      title: "Directus - Apply Schema",
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true
+    },
+    keywords: ["schema", "apply", "migrate", "deploy", "sync", "data", "model"],
+    description:
+      'Apply a schema diff produced by diff_schema. Changes the live data model and can drop ' +
+      'collections and fields.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        diff: { type: 'object', description: 'The { hash, diff } object returned by diff_schema' },
+        force: { type: 'boolean', description: 'Bypass the hash and version safety check' },
+        confirm: { type: 'boolean', description: 'Confirm application' },
+      },
+      required: ['diff'],
+    },
+  },
+  // Data import (Directus 12.2+ multi-collection flat imports)
+  {
+    name: 'import_data',
+    annotations: {
+      title: "Directus - Import Data",
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true
+    },
+    keywords: ["import", "csv", "json", "upload", "seed", "bulk", "load", "migrate"],
+    description:
+      'Import rows from a CSV or JSON file into one collection, or into several related ' +
+      'collections at once using a flat multi-collection file. Subject to the Directus ' +
+      'IMPORT_MAX_FILE_SIZE limit (50mb by default).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collection: {
+          type: 'string',
+          description: 'Target collection. Omit for a multi-collection batch import.'
+        },
+        file_path: { type: 'string', description: 'Path to a local .csv or .json file' },
+        file_data: { type: 'string', description: 'Base64-encoded file contents (alternative to file_path)' },
+        filename: {
+          type: 'string',
+          description: 'Filename for the upload; its extension selects the parser (.csv or .json)'
+        },
+        mode: {
+          type: 'string',
+          enum: ['add', 'merge'],
+          description: "Batch import only. 'add' inserts, 'merge' upserts. Default: add."
+        },
+        dry_run: { type: 'boolean', description: 'Batch import only. Report the changes without writing.' },
+        dangerously_allow_delete: {
+          type: 'boolean',
+          description: 'Batch import only. Permit deletion of rows absent from the file. Requires confirm.'
+        },
+        confirm: { type: 'boolean', description: 'Confirm a destructive import' },
+      },
+    },
+  },
+  // Tool discovery
+  {
+    name: 'search_tools',
+    annotations: {
+      title: "Directus - Search Tools",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: false
+    },
+    keywords: ["search", "find", "discover", "tools", "help", "capabilities"],
+    description:
+      'Find the tools on this server that match a task description, and return their full ' +
+      'definitions so they can be called directly. Use this first when unsure which tool to use.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Free-text task description, e.g. "delete rows" or "change the data model"'
+        },
+        limit: { type: 'number', description: 'Maximum number of tools to return (default: 10)' },
+      },
+      required: ['query'],
     },
   },
 ];
@@ -629,6 +965,16 @@ export function createHandlers(deps: ServerDeps, env: NodeJS.ProcessEnv = proces
         result = await flowTools.deleteFlow(args as any);
       } else if (name === 'trigger_flow') {
         result = await flowTools.triggerFlow(args as any);
+      } else if (name === 'search_tools') {
+        result = searchTools(TOOL_DEFINITIONS as ToolDefinition[], args as any);
+      } else if (name === 'get_schema_snapshot') {
+        result = await schemaTools.getSchemaSnapshot(args as any);
+      } else if (name === 'diff_schema') {
+        result = await schemaTools.diffSchema(args as any);
+      } else if (name === 'apply_schema') {
+        result = await schemaTools.applySchema(args as any);
+      } else if (name === 'import_data') {
+        result = await fileTools.importData(args as any);
       } else if (name === 'get_operations') {
         result = await flowTools.getOperations(args as any);
 

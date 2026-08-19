@@ -435,3 +435,145 @@ describe('FileTools', () => {
     });
   });
 });
+
+describe('FileTools.importData', () => {
+  const B64 = (obj: unknown) => Buffer.from(JSON.stringify(obj)).toString('base64');
+
+  it('imports into a single collection', async () => {
+    const stub = makeClientStub();
+    stub.importData.mockResolvedValue({ data: null });
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    const result = await tools.importData({
+      collection: 'articles',
+      file_data: B64([{ title: 'a' }]),
+      filename: 'rows.json',
+    });
+
+    expect(stub.importData).toHaveBeenCalledWith('articles', expect.any(FormData));
+    expect(text(result)).toContain('Imported');
+    expect(text(result)).toContain('articles');
+  });
+
+  it('runs a multi-collection batch import and renders the per-collection summary', async () => {
+    const stub = makeClientStub();
+    stub.importDataBatch.mockResolvedValue({
+      data: {
+        applied: true,
+        mode: 'merge',
+        collections: { articles: { existing: [1], new: [2, 3], deleted: [], mapped: {} } },
+      },
+    });
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    const result = await tools.importData({ file_data: B64([]), mode: 'merge' });
+
+    expect(stub.importDataBatch).toHaveBeenCalledWith(expect.any(FormData), { mode: 'merge' });
+    expect(text(result)).toContain('Import applied');
+    expect(text(result)).toContain('**articles**: 2 new, 1 existing, 0 deleted');
+  });
+
+  it('labels a dry run and does not claim to have written', async () => {
+    const stub = makeClientStub();
+    stub.importDataBatch.mockResolvedValue({
+      data: { applied: false, mode: 'add', collections: {} },
+    });
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    const result = await tools.importData({ file_data: B64([]), dry_run: true });
+
+    expect(text(result)).toContain('dry run');
+    expect(text(result)).toContain('nothing was written');
+  });
+
+  it('rejects batch-only options combined with a collection', async () => {
+    const stub = makeClientStub();
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    const result = await tools.importData({
+      collection: 'articles',
+      file_data: B64([]),
+      mode: 'merge',
+    });
+
+    expect(text(result)).toContain('batch imports only');
+    expect(stub.importData).not.toHaveBeenCalled();
+  });
+
+  it('rejects both file_path and file_data', async () => {
+    const stub = makeClientStub();
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    const result = await tools.importData({ file_path: UPLOAD_FIXTURE, file_data: B64([]) });
+
+    expect(text(result)).toContain('not both');
+  });
+
+  it('requires confirm for dangerously_allow_delete', async () => {
+    const stub = makeClientStub();
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    const result = await tools.importData({ file_data: B64([]), dangerously_allow_delete: true });
+
+    expect(text(result)).toContain('confirm: true');
+    expect(stub.importDataBatch).not.toHaveBeenCalled();
+  });
+
+  it('errors when neither file_path nor file_data is given', async () => {
+    const stub = makeClientStub();
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    expect(text(await tools.importData({}))).toContain('must be provided');
+  });
+
+  it('errors when the file path does not exist', async () => {
+    const stub = makeClientStub();
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    expect(text(await tools.importData({ file_path: '/nope/missing.csv' }))).toContain('File not found');
+  });
+
+  it('refuses a file over the import size limit before uploading', async () => {
+    const stub = makeClientStub();
+    const tools = new FileTools(stub as unknown as DirectusClient);
+    vi.stubEnv('DIRECTUS_IMPORT_MAX_FILE_SIZE', '16');
+
+    const result = await tools.importData({ file_data: Buffer.alloc(64).toString('base64') });
+
+    expect(text(result)).toContain('IMPORT_MAX_FILE_SIZE');
+    expect(stub.importDataBatch).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
+  it('explains a 413 from Directus', async () => {
+    const stub = makeClientStub();
+    stub.importDataBatch.mockRejectedValue(
+      Object.assign(new Error('too big'), { extensions: { status: 413, code: 'REQUEST_ENTITY_TOO_LARGE' } })
+    );
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    const result = await tools.importData({ file_data: B64([]) });
+
+    expect(text(result)).toContain('413');
+    expect(text(result)).toContain('IMPORT_MAX_FILE_SIZE');
+  });
+
+  it('surfaces other client errors', async () => {
+    const stub = makeClientStub();
+    stub.importDataBatch.mockRejectedValue(new Error('import boom'));
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    expect(text(await tools.importData({ file_data: B64([]) }))).toContain('import boom');
+  });
+
+  it('reads from a file path and picks the csv parser by extension', async () => {
+    const stub = makeClientStub();
+    stub.importData.mockResolvedValue({ data: null });
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    const result = await tools.importData({ collection: 'articles', file_path: UPLOAD_FIXTURE, filename: 'rows.csv' });
+
+    expect(stub.importData).toHaveBeenCalledWith('articles', expect.any(FormData));
+    expect(text(result)).toContain('rows.csv');
+  });
+});

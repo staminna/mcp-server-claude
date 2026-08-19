@@ -15,8 +15,16 @@ import {
   customEndpoint,
   deleteItems as deleteItemsCommand,
   uploadFiles,
+  schemaSnapshot,
+  schemaDiff,
+  schemaApply,
+  utilsImport,
+  utilsImportBatch,
+  clearCache,
   isDirectusError,
   type RestCommand,
+  type SchemaSnapshotOutput,
+  type SchemaDiffOutput,
 } from '@directus/sdk';
 import { logger } from '../utils/logger.js';
 import { createDirectusFetch, type Envelope } from './transport.js';
@@ -543,6 +551,75 @@ export class DirectusClient {
       });
       return false;
     }
+  }
+
+  // Schema operations (Directus 12.2+ partial snapshots and diff modes)
+
+  /**
+   * Read a snapshot of the data model.
+   *
+   * Passing include/exclude collections yields a partial snapshot, reported by
+   * Directus as `version: 2` (a full snapshot is `version: 1`).
+   */
+  async getSchemaSnapshot(options: {
+    includeCollections?: string[];
+    excludeCollections?: string[];
+  } = {}): Promise<DirectusResponse<SchemaSnapshotOutput>> {
+    const { includeCollections, excludeCollections } = options;
+
+    if (includeCollections?.length && excludeCollections?.length) {
+      throw {
+        message: 'includeCollections and excludeCollections are mutually exclusive',
+        extensions: { code: 'INVALID_PAYLOAD' }
+      } as DirectusError;
+    }
+
+    if (includeCollections?.length) {
+      return this.send(schemaSnapshot({ includeCollections: includeCollections as any }));
+    }
+    if (excludeCollections?.length) {
+      return this.send(schemaSnapshot({ excludeCollections: excludeCollections as any }));
+    }
+    return this.send(schemaSnapshot());
+  }
+
+  /**
+   * Compare a snapshot against the live data model.
+   *
+   * `mirror` (the Directus default) reports every operation including
+   * deletions; `merge` produces an additive diff. Directus answers 204 when
+   * there is no difference, which surfaces here as `data: null`.
+   */
+  async diffSchema(
+    snapshot: SchemaSnapshotOutput,
+    options: { force?: boolean; mode?: 'merge' | 'mirror' } = {}
+  ): Promise<DirectusResponse<SchemaDiffOutput | null>> {
+    return this.send(schemaDiff(snapshot, options));
+  }
+
+  /** Apply a diff produced by diffSchema. */
+  async applySchema(diff: SchemaDiffOutput, force?: boolean): Promise<DirectusResponse<null>> {
+    return this.send(schemaApply(diff, force));
+  }
+
+  // Import operations (Directus 12.2+ multi-collection flat imports)
+
+  /** Import a CSV or JSON file into a single collection. */
+  async importData(collection: string, data: FormData): Promise<DirectusResponse<null>> {
+    return this.send(utilsImport(collection, data));
+  }
+
+  /** Import flat data spanning several related collections in one request. */
+  async importDataBatch(
+    data: FormData,
+    options: { mode?: 'add' | 'merge'; dryRun?: boolean; dangerouslyAllowDelete?: boolean } = {}
+  ): Promise<DirectusResponse<any>> {
+    return this.send(utilsImportBatch(data, options));
+  }
+
+  /** Clear the Directus cache. */
+  async clearCache(): Promise<DirectusResponse<null>> {
+    return this.send(clearCache());
   }
 
   // Get server info

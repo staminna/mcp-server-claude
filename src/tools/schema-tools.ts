@@ -314,6 +314,213 @@ export class SchemaTools {
     }
   }
 
+  // ---------------------------------------------------------------------
+  // Schema snapshot / diff / apply (Directus 12.2+)
+  // ---------------------------------------------------------------------
+
+  async getSchemaSnapshot(args: {
+    include_collections?: string[];
+    exclude_collections?: string[];
+  } = {}): Promise<any> {
+    const operationId = `get_schema_snapshot_${Date.now()}`;
+    logger.startTimer(operationId);
+
+    const include = args.include_collections ?? [];
+    const exclude = args.exclude_collections ?? [];
+
+    try {
+      if (include.length > 0 && exclude.length > 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: '❌ `include_collections` and `exclude_collections` are mutually exclusive — pass at most one.'
+          }]
+        };
+      }
+
+      logger.toolStart('get_schema_snapshot', args);
+
+      const response = await this.client.getSchemaSnapshot({
+        ...(include.length > 0 && { includeCollections: include }),
+        ...(exclude.length > 0 && { excludeCollections: exclude })
+      });
+
+      const snapshot = response.data;
+      const partial = snapshot?.version === 2;
+
+      const duration = logger.endTimer(operationId);
+      logger.toolEnd('get_schema_snapshot', duration, true, {
+        partial,
+        collections: snapshot?.collections?.length
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: `📸 **Schema Snapshot** (${partial ? 'partial' : 'full'})\n\n` +
+                `- **Directus**: ${snapshot?.directus ?? 'unknown'}\n` +
+                `- **Vendor**: ${snapshot?.vendor ?? 'unknown'}\n` +
+                `- **Collections**: ${snapshot?.collections?.length ?? 0}\n` +
+                `- **Fields**: ${snapshot?.fields?.length ?? 0}\n` +
+                `- **Relations**: ${snapshot?.relations?.length ?? 0}\n\n` +
+                `Pass this object to \`diff_schema\` to see what applying it would change.\n\n` +
+                `\`\`\`json\n${JSON.stringify(snapshot, null, 2)}\n\`\`\``
+        }]
+      };
+    } catch (error) {
+      logger.endTimer(operationId);
+      logger.toolError('get_schema_snapshot', error as Error, args);
+
+      return {
+        content: [{
+          type: 'text',
+          text: `Error reading schema snapshot: ${(error as Error).message}`
+        }]
+      };
+    }
+  }
+
+  async diffSchema(args: {
+    snapshot: any;
+    mode?: 'merge' | 'mirror';
+    force?: boolean;
+  }): Promise<any> {
+    const operationId = `diff_schema_${Date.now()}`;
+    logger.startTimer(operationId);
+
+    try {
+      if (!args.snapshot || typeof args.snapshot !== 'object') {
+        return {
+          content: [{
+            type: 'text',
+            text: '❌ `snapshot` is required — pass the object returned by `get_schema_snapshot`.'
+          }]
+        };
+      }
+
+      logger.toolStart('diff_schema', { mode: args.mode, force: args.force });
+
+      const response = await this.client.diffSchema(args.snapshot, {
+        ...(args.mode && { mode: args.mode }),
+        ...(args.force !== undefined && { force: args.force })
+      });
+
+      const duration = logger.endTimer(operationId);
+      const diff = response.data;
+
+      // Directus answers 204 when the snapshot matches the live schema.
+      if (!diff) {
+        logger.toolEnd('diff_schema', duration, true, { changes: 0 });
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ **No schema changes** — the snapshot matches the current data model.`
+          }]
+        };
+      }
+
+      const counts = this.summarizeDiff(diff);
+      logger.toolEnd('diff_schema', duration, true, counts);
+
+      return {
+        content: [{
+          type: 'text',
+          text: `🔍 **Schema Diff** (mode: ${args.mode ?? 'mirror'})\n\n` +
+                `- **Collections**: ${counts.collections}\n` +
+                `- **Fields**: ${counts.fields}\n` +
+                `- **Relations**: ${counts.relations}\n\n` +
+                (args.mode === 'merge'
+                  ? `\`merge\` mode excludes deletions — this diff is additive.\n\n`
+                  : `\`mirror\` mode includes deletions. Review before applying.\n\n`) +
+                `Pass this object to \`apply_schema\` to apply it.\n\n` +
+                `\`\`\`json\n${JSON.stringify(diff, null, 2)}\n\`\`\``
+        }]
+      };
+    } catch (error) {
+      logger.endTimer(operationId);
+      logger.toolError('diff_schema', error as Error, {});
+
+      return {
+        content: [{
+          type: 'text',
+          text: `Error diffing schema: ${(error as Error).message}`
+        }]
+      };
+    }
+  }
+
+  async applySchema(args: {
+    diff: any;
+    force?: boolean;
+    confirm?: boolean;
+  }): Promise<any> {
+    const operationId = `apply_schema_${Date.now()}`;
+    logger.startTimer(operationId);
+
+    try {
+      if (!args.diff || typeof args.diff !== 'object' || !args.diff.diff) {
+        return {
+          content: [{
+            type: 'text',
+            text: '❌ `diff` is required — pass the `{ hash, diff }` object returned by `diff_schema`.'
+          }]
+        };
+      }
+
+      const counts = this.summarizeDiff(args.diff);
+
+      if (!args.confirm) {
+        return {
+          content: [{
+            type: 'text',
+            text: `⚠️ **Warning**: this will change the live data model and can drop collections and fields.\n\n` +
+                  `- **Collections affected**: ${counts.collections}\n` +
+                  `- **Fields affected**: ${counts.fields}\n` +
+                  `- **Relations affected**: ${counts.relations}\n\n` +
+                  `To proceed, call this tool again with \`confirm: true\`.`
+          }]
+        };
+      }
+
+      logger.toolStart('apply_schema', { force: args.force, ...counts });
+
+      await this.client.applySchema(args.diff, args.force);
+
+      const duration = logger.endTimer(operationId);
+      logger.toolEnd('apply_schema', duration, true, counts);
+
+      return {
+        content: [{
+          type: 'text',
+          text: `✅ **Schema applied**\n\n` +
+                `- **Collections**: ${counts.collections}\n` +
+                `- **Fields**: ${counts.fields}\n` +
+                `- **Relations**: ${counts.relations}`
+        }]
+      };
+    } catch (error) {
+      logger.endTimer(operationId);
+      logger.toolError('apply_schema', error as Error, {});
+
+      return {
+        content: [{
+          type: 'text',
+          text: `Error applying schema: ${(error as Error).message}`
+        }]
+      };
+    }
+  }
+
+  /** Count the operations in a schema diff, tolerating a missing section. */
+  private summarizeDiff(diff: any): { collections: number; fields: number; relations: number } {
+    const inner = diff?.diff ?? diff ?? {};
+    return {
+      collections: Array.isArray(inner.collections) ? inner.collections.length : 0,
+      fields: Array.isArray(inner.fields) ? inner.fields.length : 0,
+      relations: Array.isArray(inner.relations) ? inner.relations.length : 0
+    };
+  }
+
   private buildRelationshipMap(relations: DirectusRelation[], collection: string): RelationshipMap {
     const map: RelationshipMap = {
       oneToMany: [],

@@ -750,3 +750,161 @@ describe('SchemaTools', () => {
     });
   });
 });
+
+describe('SchemaTools schema snapshot / diff / apply', () => {
+  const SNAPSHOT = {
+    version: 1,
+    directus: '12.3.0',
+    vendor: 'postgres',
+    collections: [{ collection: 'articles' }],
+    fields: [],
+    systemFields: [],
+    relations: [],
+  };
+
+  describe('getSchemaSnapshot', () => {
+    it('reports a full snapshot', async () => {
+      const stub = makeClientStub();
+      stub.getSchemaSnapshot.mockResolvedValue({ data: SNAPSHOT });
+      const tools = new SchemaTools(stub);
+
+      const result = await tools.getSchemaSnapshot({});
+
+      expect(text(result)).toContain('(full)');
+      expect(stub.getSchemaSnapshot).toHaveBeenCalledWith({});
+    });
+
+    it('reports a partial snapshot and forwards include_collections', async () => {
+      const stub = makeClientStub();
+      stub.getSchemaSnapshot.mockResolvedValue({ data: { ...SNAPSHOT, version: 2 } });
+      const tools = new SchemaTools(stub);
+
+      const result = await tools.getSchemaSnapshot({ include_collections: ['articles'] });
+
+      expect(text(result)).toContain('(partial)');
+      expect(stub.getSchemaSnapshot).toHaveBeenCalledWith({ includeCollections: ['articles'] });
+    });
+
+    it('forwards exclude_collections', async () => {
+      const stub = makeClientStub();
+      stub.getSchemaSnapshot.mockResolvedValue({ data: { ...SNAPSHOT, version: 2 } });
+      const tools = new SchemaTools(stub);
+
+      await tools.getSchemaSnapshot({ exclude_collections: ['logs'] });
+
+      expect(stub.getSchemaSnapshot).toHaveBeenCalledWith({ excludeCollections: ['logs'] });
+    });
+
+    it('rejects include and exclude together', async () => {
+      const stub = makeClientStub();
+      const tools = new SchemaTools(stub);
+
+      const result = await tools.getSchemaSnapshot({
+        include_collections: ['a'],
+        exclude_collections: ['b'],
+      });
+
+      expect(text(result)).toContain('mutually exclusive');
+      expect(stub.getSchemaSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('surfaces client errors', async () => {
+      const stub = makeClientStub();
+      stub.getSchemaSnapshot.mockRejectedValue(new Error('snapshot boom'));
+      const tools = new SchemaTools(stub);
+
+      expect(text(await tools.getSchemaSnapshot({}))).toContain('snapshot boom');
+    });
+  });
+
+  describe('diffSchema', () => {
+    it('reports no changes when Directus answers 204', async () => {
+      const stub = makeClientStub();
+      stub.diffSchema.mockResolvedValue({ data: null });
+      const tools = new SchemaTools(stub);
+
+      expect(text(await tools.diffSchema({ snapshot: SNAPSHOT }))).toContain('No schema changes');
+    });
+
+    it('summarizes the diff and forwards mode', async () => {
+      const stub = makeClientStub();
+      stub.diffSchema.mockResolvedValue({
+        data: { hash: 'h', diff: { collections: [{}, {}], fields: [{}], relations: [] } },
+      });
+      const tools = new SchemaTools(stub);
+
+      const result = await tools.diffSchema({ snapshot: SNAPSHOT, mode: 'merge' });
+
+      expect(text(result)).toContain('**Collections**: 2');
+      expect(text(result)).toContain('**Fields**: 1');
+      expect(text(result)).toContain('additive');
+      expect(stub.diffSchema).toHaveBeenCalledWith(SNAPSHOT, { mode: 'merge' });
+    });
+
+    it('warns that mirror mode includes deletions', async () => {
+      const stub = makeClientStub();
+      stub.diffSchema.mockResolvedValue({ data: { hash: 'h', diff: { collections: [{}] } } });
+      const tools = new SchemaTools(stub);
+
+      expect(text(await tools.diffSchema({ snapshot: SNAPSHOT }))).toContain('includes deletions');
+    });
+
+    it('requires a snapshot', async () => {
+      const stub = makeClientStub();
+      const tools = new SchemaTools(stub);
+
+      expect(text(await tools.diffSchema({ snapshot: undefined as any }))).toContain('`snapshot` is required');
+      expect(stub.diffSchema).not.toHaveBeenCalled();
+    });
+
+    it('surfaces client errors', async () => {
+      const stub = makeClientStub();
+      stub.diffSchema.mockRejectedValue(new Error('diff boom'));
+      const tools = new SchemaTools(stub);
+
+      expect(text(await tools.diffSchema({ snapshot: SNAPSHOT }))).toContain('diff boom');
+    });
+  });
+
+  describe('applySchema', () => {
+    const DIFF = { hash: 'h', diff: { collections: [{}], fields: [{}, {}], relations: [] } };
+
+    it('warns and does not apply without confirm', async () => {
+      const stub = makeClientStub();
+      const tools = new SchemaTools(stub);
+
+      const result = await tools.applySchema({ diff: DIFF });
+
+      expect(text(result)).toContain('Warning');
+      expect(text(result)).toContain('**Fields affected**: 2');
+      expect(stub.applySchema).not.toHaveBeenCalled();
+    });
+
+    it('applies when confirmed', async () => {
+      const stub = makeClientStub();
+      stub.applySchema.mockResolvedValue({ data: null });
+      const tools = new SchemaTools(stub);
+
+      const result = await tools.applySchema({ diff: DIFF, confirm: true, force: true });
+
+      expect(stub.applySchema).toHaveBeenCalledWith(DIFF, true);
+      expect(text(result)).toContain('Schema applied');
+    });
+
+    it('requires a diff', async () => {
+      const stub = makeClientStub();
+      const tools = new SchemaTools(stub);
+
+      expect(text(await tools.applySchema({ diff: {} as any, confirm: true }))).toContain('`diff` is required');
+      expect(stub.applySchema).not.toHaveBeenCalled();
+    });
+
+    it('surfaces client errors', async () => {
+      const stub = makeClientStub();
+      stub.applySchema.mockRejectedValue(new Error('apply boom'));
+      const tools = new SchemaTools(stub);
+
+      expect(text(await tools.applySchema({ diff: DIFF, confirm: true }))).toContain('apply boom');
+    });
+  });
+});

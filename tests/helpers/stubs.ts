@@ -56,6 +56,12 @@ const METHODS = [
   'createPermission',
   'ping',
   'getServerInfo',
+  'getSchemaSnapshot',
+  'diffSchema',
+  'applySchema',
+  'importData',
+  'importDataBatch',
+  'clearCache',
 ] as const;
 
 export type StubMethod = (typeof METHODS)[number];

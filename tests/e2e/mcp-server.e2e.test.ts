@@ -12,6 +12,7 @@ const REPO = process.cwd();
 const EXPECTED_TOOLS = [
   'analyze_collection_schema',
   'analyze_relationships',
+  'apply_schema',
   'bulk_operations',
   'create_collection',
   'create_field',
@@ -23,16 +24,20 @@ const EXPECTED_TOOLS = [
   'delete_flow',
   'delete_items',
   'diagnose_collection_access',
+  'diff_schema',
   'get_collection_items',
   'get_collection_schema',
   'get_files',
   'get_flow',
   'get_flows',
   'get_operations',
+  'get_schema_snapshot',
   'get_user',
   'get_users',
+  'import_data',
   'list_collections',
   'refresh_collection_cache',
+  'search_tools',
   'trigger_flow',
   'update_field',
   'update_flow',
@@ -89,7 +94,7 @@ describe('MCP server e2e (features enabled)', () => {
     });
   });
 
-  it('lists exactly the 29 expected tools with object schemas', async () => {
+  it('lists exactly the 34 expected tools with object schemas', async () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(EXPECTED_TOOLS);
     for (const tool of tools) {
@@ -99,6 +104,37 @@ describe('MCP server e2e (features enabled)', () => {
     expect(items.inputSchema.required).toEqual(['collection']);
     const update = tools.find((t) => t.name === 'update_item')!;
     expect(update.inputSchema.required).toEqual(['collection', 'id', 'data']);
+  });
+
+  it('delivers safety annotations over the wire', async () => {
+    const { tools } = await client.listTools();
+
+    for (const tool of tools) {
+      expect(tool.annotations, `${tool.name} lost its annotations in transit`).toBeDefined();
+    }
+
+    const del = tools.find((t) => t.name === 'delete_items')!;
+    expect(del.annotations!.destructiveHint).toBe(true);
+
+    const read = tools.find((t) => t.name === 'list_collections')!;
+    expect(read.annotations!.readOnlyHint).toBe(true);
+  });
+
+  it('keeps keywords server-side rather than on the wire', async () => {
+    // ToolSchema in @modelcontextprotocol/sdk is a plain z.object, so Zod strips
+    // unknown keys and `keywords` does not reach the client. That is fine:
+    // search_tools runs in-process against TOOL_DEFINITIONS, so the index never
+    // needs to travel. This test pins the split — if a future SDK starts
+    // forwarding it, that is a deliberate decision to make, not a silent change.
+    const { tools } = await client.listTools();
+    const del = tools.find((t) => t.name === 'delete_items')! as unknown as { keywords?: string[] };
+    expect(del.keywords).toBeUndefined();
+  });
+
+  it('search_tools finds tools by keyword', async () => {
+    const result = await client.callTool({ name: 'search_tools', arguments: { query: 'csv import' } });
+    const text = (result.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain('import_data');
   });
 
   it('executes list_collections with the configured Bearer token', async () => {

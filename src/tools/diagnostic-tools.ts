@@ -212,10 +212,9 @@ export class DiagnosticTools {
         operations: []
       };
 
-      // Try to clear cache using Directus utilities endpoint
+      // Clear the cache via POST /utils/cache/clear.
       try {
-        // Note: Cache clearing may not be available via client, this is a placeholder
-        // await this.client.clearCache();
+        await this.client.clearCache();
         results.operations.push({
           operation: 'clear_cache',
           success: true,

@@ -52,6 +52,10 @@ const DISPATCH: Array<[string, keyof ServerDeps, string]> = [
   ['delete_flow', 'flowTools', 'deleteFlow'],
   ['trigger_flow', 'flowTools', 'triggerFlow'],
   ['get_operations', 'flowTools', 'getOperations'],
+  ['get_schema_snapshot', 'schemaTools', 'getSchemaSnapshot'],
+  ['diff_schema', 'schemaTools', 'diffSchema'],
+  ['apply_schema', 'schemaTools', 'applySchema'],
+  ['import_data', 'fileTools', 'importData'],
 ];
 
 type StubbedDeps = ServerDeps & {
@@ -166,15 +170,17 @@ describe('loadConfigFromEnv', () => {
 });
 
 describe('listTools / TOOL_DEFINITIONS', () => {
-  it('exposes exactly the 29 dispatchable tools', async () => {
+  it('exposes exactly the 34 tools', async () => {
     const { listTools } = createHandlers(makeDeps(), {} as NodeJS.ProcessEnv);
     const { tools } = await listTools();
 
     expect(tools).toBe(TOOL_DEFINITIONS);
-    expect(tools).toHaveLength(29);
+    expect(tools).toHaveLength(34);
 
     const listed = tools.map((t: any) => t.name).sort();
-    const dispatched = DISPATCH.map(([name]) => name).sort();
+    // search_tools resolves inside the handler rather than on a deps slot, so
+    // it is not in the DISPATCH table.
+    const dispatched = [...DISPATCH.map(([name]) => name), 'search_tools'].sort();
     expect(listed).toEqual(dispatched);
   });
 
@@ -182,6 +188,48 @@ describe('listTools / TOOL_DEFINITIONS', () => {
     for (const tool of TOOL_DEFINITIONS) {
       expect(tool.inputSchema.type).toBe('object');
       expect(tool.description.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('every tool carries annotations with a title', () => {
+    for (const tool of TOOL_DEFINITIONS) {
+      expect(tool.annotations, `${tool.name} has no annotations`).toBeDefined();
+      expect(tool.annotations!.title).toMatch(/^Directus - /);
+    }
+  });
+
+  it('destructiveHint is only set where readOnlyHint is false', () => {
+    // Per the MCP spec, destructiveHint and idempotentHint are only meaningful
+    // when readOnlyHint is false.
+    for (const tool of TOOL_DEFINITIONS) {
+      const a = tool.annotations as Record<string, unknown>;
+      if (a.readOnlyHint === true) {
+        expect(a.destructiveHint, `${tool.name} is read-only but sets destructiveHint`).toBeUndefined();
+      } else {
+        expect(a.destructiveHint, `${tool.name} mutates but omits destructiveHint`).toBeDefined();
+      }
+    }
+  });
+
+  it('marks every delete tool destructive and every read tool read-only', () => {
+    const byName = new Map(TOOL_DEFINITIONS.map((t) => [t.name, t.annotations as Record<string, unknown>]));
+
+    for (const name of ['delete_collection', 'delete_items', 'delete_field', 'delete_flow', 'apply_schema']) {
+      expect(byName.get(name)?.destructiveHint, name).toBe(true);
+    }
+    for (const name of ['list_collections', 'get_collection_items', 'get_schema_snapshot', 'diff_schema']) {
+      expect(byName.get(name)?.readOnlyHint, name).toBe(true);
+    }
+    // Additive tools say so explicitly: destructiveHint defaults to true.
+    for (const name of ['create_item', 'create_field', 'create_collection']) {
+      expect(byName.get(name)?.destructiveHint, name).toBe(false);
+    }
+  });
+
+  it('every tool carries keywords for search_tools', () => {
+    for (const tool of TOOL_DEFINITIONS) {
+      expect(Array.isArray(tool.keywords), `${tool.name} has no keywords`).toBe(true);
+      expect(tool.keywords!.length).toBeGreaterThan(0);
     }
   });
 });

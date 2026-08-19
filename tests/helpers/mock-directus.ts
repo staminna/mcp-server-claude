@@ -116,6 +116,76 @@ export class MockDirectus {
   private route(req: RecordedRequest, res: ServerResponse): void {
     const { method, path } = req;
 
+    // Schema snapshot / diff / apply (Directus 12.2+)
+    if (path === '/schema/snapshot' && method === 'GET') {
+      const include = req.query.includeCollections?.split(',').filter(Boolean) ?? [];
+      const exclude = req.query.excludeCollections?.split(',').filter(Boolean) ?? [];
+      const partial = include.length > 0 || exclude.length > 0;
+      let collections = COLLECTIONS.map((c) => ({ collection: c.collection }));
+      if (include.length > 0) collections = collections.filter((c) => include.includes(c.collection));
+      if (exclude.length > 0) collections = collections.filter((c) => !exclude.includes(c.collection));
+      return this.json(res, 200, envelope({
+        version: partial ? 2 : 1,
+        directus: '12.3.0',
+        vendor: 'postgres',
+        collections,
+        fields: [],
+        systemFields: [],
+        relations: [],
+      }));
+    }
+
+    if (path === '/schema/diff' && method === 'POST') {
+      // Directus answers 204 when the snapshot matches the live schema.
+      if (req.body?.collections?.length === 0) {
+        res.statusCode = 204;
+        res.removeHeader('content-type');
+        res.end();
+        return;
+      }
+      const deletions = req.query.mode === 'merge' ? [] : [{ collection: 'gone', diff: [{ kind: 'D' }] }];
+      return this.json(res, 200, envelope({
+        hash: 'diff-hash',
+        diff: {
+          collections: [{ collection: 'articles', diff: [{ kind: 'N' }] }, ...deletions],
+          fields: [],
+          relations: [],
+        },
+      }));
+    }
+
+    if (path === '/schema/apply' && method === 'POST') {
+      res.statusCode = 204;
+      res.removeHeader('content-type');
+      res.end();
+      return;
+    }
+
+    // Data import (Directus 12.2+)
+    if (path === '/utils/import' && method === 'POST') {
+      return this.json(res, 200, envelope({
+        applied: req.query.dryRun !== 'true',
+        mode: req.query.mode ?? 'add',
+        collections: {
+          articles: { existing: [1], new: [2, 3], deleted: [], mapped: {} },
+        },
+      }));
+    }
+
+    if (path.startsWith('/utils/import/') && method === 'POST') {
+      res.statusCode = 204;
+      res.removeHeader('content-type');
+      res.end();
+      return;
+    }
+
+    if (path === '/utils/cache/clear' && method === 'POST') {
+      res.statusCode = 204;
+      res.removeHeader('content-type');
+      res.end();
+      return;
+    }
+
     // Health endpoints (ping() tries several)
     if (path === '/server/ping') return this.json(res, 200, { data: 'pong' });
     if (path === '/server/health') return this.json(res, 200, { status: 'ok' });

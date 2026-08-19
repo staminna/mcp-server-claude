@@ -9,6 +9,155 @@ import path from 'path';
 export class FileTools {
   constructor(private client: DirectusClient) {}
 
+  /**
+   * Import rows from a CSV or JSON file.
+   *
+   * With `collection`, imports into that one collection. Without it, treats the
+   * payload as a Directus 12.2+ flat multi-collection import
+   * (an array of `{ collection, items }` objects).
+   */
+  async importData(args: {
+    collection?: string;
+    file_path?: string;
+    file_data?: string; // base64 encoded
+    filename?: string;
+    mode?: 'add' | 'merge';
+    dry_run?: boolean;
+    dangerously_allow_delete?: boolean;
+    confirm?: boolean;
+  }): Promise<any> {
+    const operationId = `import_data_${Date.now()}`;
+    logger.startTimer(operationId);
+
+    const batch = !args.collection;
+
+    try {
+      if (args.file_path && args.file_data) {
+        return this.text('❌ Provide either `file_path` or `file_data`, not both.');
+      }
+
+      if (args.collection && (args.mode || args.dry_run || args.dangerously_allow_delete)) {
+        return this.text(
+          '❌ `mode`, `dry_run` and `dangerously_allow_delete` apply to multi-collection batch ' +
+          'imports only. Omit `collection` to use them.'
+        );
+      }
+
+      if (args.dangerously_allow_delete && !args.confirm) {
+        return this.text(
+          '⚠️ `dangerously_allow_delete` removes rows that are absent from the file.\n\n' +
+          'To proceed, call this tool again with `confirm: true`.'
+        );
+      }
+
+      let buffer: Buffer;
+      let filename = args.filename;
+
+      if (args.file_path) {
+        if (!fs.existsSync(args.file_path)) {
+          throw new Error(`File not found: ${args.file_path}`);
+        }
+        buffer = fs.readFileSync(args.file_path);
+        filename = filename || path.basename(args.file_path);
+      } else if (args.file_data) {
+        buffer = Buffer.from(args.file_data, 'base64');
+        filename = filename || 'import.json';
+      } else {
+        throw new Error('Either file_path or file_data must be provided');
+      }
+
+      // Directus 12.2 caps import uploads with IMPORT_MAX_FILE_SIZE (50mb by
+      // default). Refuse locally rather than uploading only to be rejected.
+      const maxBytes = this.importMaxBytes();
+      if (buffer.byteLength > maxBytes) {
+        return this.text(
+          `❌ Import file is ${(buffer.byteLength / 1_048_576).toFixed(1)} MB, over the ` +
+          `${(maxBytes / 1_048_576).toFixed(0)} MB limit.\n\n` +
+          'Directus caps import uploads with `IMPORT_MAX_FILE_SIZE` (default `50mb`). Raise it on ' +
+          'the Directus instance, or set `DIRECTUS_IMPORT_MAX_FILE_SIZE` here if the server allows ' +
+          'more than this client assumes.'
+        );
+      }
+
+      // The parser is selected from the mimetype, so it has to be right.
+      const mimetype = filename.toLowerCase().endsWith('.csv') ? 'text/csv' : 'application/json';
+
+      logger.toolStart('import_data', {
+        collection: args.collection,
+        batch,
+        bytes: buffer.byteLength,
+        mode: args.mode,
+        dryRun: args.dry_run
+      });
+
+      const formData = new FormData();
+      formData.append('file', new Blob([new Uint8Array(buffer)], { type: mimetype }), filename);
+
+      const response = batch
+        ? await this.client.importDataBatch(formData, {
+            ...(args.mode && { mode: args.mode }),
+            ...(args.dry_run !== undefined && { dryRun: args.dry_run }),
+            ...(args.dangerously_allow_delete !== undefined && {
+              dangerouslyAllowDelete: args.dangerously_allow_delete
+            })
+          })
+        : await this.client.importData(args.collection!, formData);
+
+      const duration = logger.endTimer(operationId);
+      logger.toolEnd('import_data', duration, true, { collection: args.collection, batch });
+
+      if (!batch) {
+        return this.text(`✅ Imported \`${filename}\` into "${args.collection}".`);
+      }
+
+      return this.text(this.formatImportResult(response.data, args.dry_run));
+    } catch (error) {
+      logger.endTimer(operationId);
+      logger.toolError('import_data', error as Error, { collection: args.collection });
+
+      const status = (error as any)?.extensions?.status;
+      const code = (error as any)?.extensions?.code;
+
+      if (status === 413 || code === 'REQUEST_ENTITY_TOO_LARGE') {
+        return this.text(
+          '❌ Directus rejected the import as too large (HTTP 413).\n\n' +
+          'Raise `IMPORT_MAX_FILE_SIZE` on the Directus instance (it defaults to `50mb`), or split ' +
+          'the file into smaller imports.'
+        );
+      }
+
+      return this.text(`Error importing data: ${(error as Error).message}`);
+    }
+  }
+
+  /** Client-side import size ceiling, mirroring Directus IMPORT_MAX_FILE_SIZE. */
+  private importMaxBytes(): number {
+    const configured = Number(process.env.DIRECTUS_IMPORT_MAX_FILE_SIZE);
+    return Number.isFinite(configured) && configured > 0 ? configured : 50 * 1_048_576;
+  }
+
+  private formatImportResult(result: any, dryRun?: boolean): string {
+    const header = dryRun
+      ? '🔍 **Import dry run** — nothing was written.'
+      : `✅ **Import applied** (mode: ${result?.mode ?? 'add'})`;
+
+    const collections = result?.collections ?? {};
+    const rows = Object.entries(collections).map(([name, summary]: [string, any]) => {
+      const existing = summary?.existing?.length ?? 0;
+      const created = summary?.new?.length ?? 0;
+      const deleted = summary?.deleted?.length ?? 0;
+      return `- **${name}**: ${created} new, ${existing} existing, ${deleted} deleted`;
+    });
+
+    return rows.length > 0
+      ? `${header}\n\n${rows.join('\n')}`
+      : `${header}\n\nNo collections were affected.`;
+  }
+
+  private text(message: string): any {
+    return { content: [{ type: 'text', text: message }] };
+  }
+
   async uploadFile(args: {
     file_path?: string;
     file_data?: string; // base64 encoded
