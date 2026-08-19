@@ -61,13 +61,10 @@
     "@directus/sdk": "^25.0.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "axios": "^1.11.0",
-    "csv-parse": "^6.1.0",
     "dotenv": "^16.6.1",
-    "form-data": "^4.0.4",
     "ws": "^8.18.3"
   },
   "devDependencies": {
-    "@types/form-data": "^2.5.2",
     "@types/node": "^22.18.1",
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.0.0",

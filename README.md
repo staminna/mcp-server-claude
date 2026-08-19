@@ -1,6 +1,6 @@
 # @staminna/directus-mcp-server
 
-Enhanced MCP (Model Context Protocol) server for Directus v12.0.0 with TypeScript, WebSocket support, and full API coverage.
+Enhanced MCP (Model Context Protocol) server for Directus v12.3.0 with TypeScript, WebSocket support, and full API coverage.
 
 [![npm version](https://badge.fury.io/js/%40staminna%2Fdirectus-mcp-server.svg)](https://www.npmjs.com/package/@staminna/directus-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -53,6 +53,28 @@ npm run build
 | `DIRECTUS_RESOURCES_ENABLED` | No | Enable resources feature (`true`/`false`) |
 | `DIRECTUS_RESOURCES_EXCLUDE_SYSTEM` | No | Exclude system collections from resources (`true`/`false`) |
 | `NODE_ENV` | No | Environment mode (`development`/`production`) |
+| `DIRECTUS_TIMEOUT` | No | Request timeout in ms (default: `30000`) |
+| `DIRECTUS_RETRIES` | No | Retry attempts for network errors, 5xx and 429 (default: `3`) |
+| `DIRECTUS_RETRY_DELAY` | No | Base backoff delay in ms (default: `1000`) |
+| `DIRECTUS_MAX_RETRY_DELAY` | No | Backoff ceiling in ms (default: `10000`) |
+| `DIRECTUS_IMPORT_MAX_FILE_SIZE` | No | Client-side import size ceiling in bytes, mirroring the Directus `IMPORT_MAX_FILE_SIZE` (default: 50 MB) |
+| `LOG_LEVEL` | No | `DEBUG`/`INFO`/`WARN`/`ERROR` (default: `INFO`). Logs go to stderr; stdout is reserved for MCP |
+
+### TLS / client certificates
+
+Set these when the Directus instance uses a private CA or requires a client
+certificate. Each of `CA`/`CERT`/`KEY`/`PFX` accepts either a file path or the
+PEM/DER content itself.
+
+| Variable | Description |
+|----------|-------------|
+| `DIRECTUS_HTTPS_CA` | Certificate authority |
+| `DIRECTUS_HTTPS_CERT` | Client certificate |
+| `DIRECTUS_HTTPS_KEY` | Client private key |
+| `DIRECTUS_HTTPS_PFX` | PKCS#12 bundle (alternative to cert/key) |
+| `DIRECTUS_HTTPS_PASSPHRASE` | Passphrase for the key or PFX |
+| `DIRECTUS_HTTPS_REJECT_UNAUTHORIZED` | `false` to accept self-signed certificates |
+| `DIRECTUS_HTTPS_SERVERNAME` | SNI server name override |
 
 ---
 
@@ -260,9 +282,10 @@ For Claude.ai web interface with MCP support:
 | `get_collection_schema` | Get schema for a specific collection |
 | `get_collection_items` | Get items from a collection with filtering |
 | `create_collection` | Create a new collection |
+| `delete_collection` | Delete a collection (requires `confirm`) |
 | `create_item` | Create a new item in a collection |
-| `update_item` | Update an existing item |
-| `delete_items` | Delete items from a collection |
+| `update_item` | Update an existing item, optionally into a draft `version` |
+| `delete_items` | Delete items by `ids` or by `query` (see note below) |
 | `bulk_operations` | Execute bulk create, update, delete |
 
 ### Schema & Fields
@@ -275,6 +298,9 @@ For Claude.ai web interface with MCP support:
 | `analyze_collection_schema` | Analyze schema with relationship mapping |
 | `validate_collection_schema` | Validate schema and relationships |
 | `analyze_relationships` | Analyze relationships across collections |
+| `get_schema_snapshot` | Read a full or partial snapshot of the data model |
+| `diff_schema` | Compare a snapshot against the live schema (`merge` or `mirror`) |
+| `apply_schema` | Apply a diff (requires `confirm`) |
 
 ### Flow Management
 | Tool | Description |
@@ -297,6 +323,7 @@ For Claude.ai web interface with MCP support:
 | Tool | Description |
 |------|-------------|
 | `get_files` | Get files with filtering and pagination |
+| `import_data` | Import CSV/JSON into one collection, or several at once |
 
 ### Diagnostics
 | Tool | Description |
@@ -304,6 +331,37 @@ For Claude.ai web interface with MCP support:
 | `diagnose_collection_access` | Diagnose collection access issues |
 | `refresh_collection_cache` | Refresh collection cache |
 | `validate_collection_creation` | Validate newly created collections |
+
+### Discovery
+| Tool | Description |
+|------|-------------|
+| `search_tools` | Find the tools matching a task description |
+
+### Tool safety annotations
+
+Every tool carries MCP annotations so a client can tell reads from writes before
+calling: 17 are `readOnlyHint: true`, 6 are explicitly `destructiveHint: false`
+(additive — creates), and 11 are `destructiveHint: true` (deletes, overwriting
+updates, `apply_schema`, `import_data`, `trigger_flow`).
+
+Note that `destructiveHint` **defaults to true** in the MCP spec, which is why
+the additive tools set it to `false` rather than omitting it.
+
+### Deleting items safely
+
+Following Directus 12.3.0, `delete_items` never falls back to deleting
+everything:
+
+- `ids: [...]` deletes those items.
+- `query: {...}` deletes everything the query matches.
+- Passing both is rejected.
+- Passing neither deletes nothing and issues no request.
+
+To delete every item in a collection, ask for it explicitly:
+
+```json
+{ "collection": "articles", "query": { "limit": -1 }, "confirm": true }
+```
 
 ---
 
