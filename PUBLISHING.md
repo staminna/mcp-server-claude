@@ -17,13 +17,30 @@ The registry prep is already done in this repo:
 
 ## 1. Publish to npm
 
+First confirm the version is aligned in **all four** places (see §3 — they must be
+equal, and `npm publish` will not catch a mismatch):
+
+```bash
+# Prints one line if the four agree, more than one if they have drifted.
+{ node -p "require('./package.json').version"
+  node -p "require('./server.json').version"
+  node -p "require('./server.json').packages[0].version"
+  sed -n "s/.*SERVER_VERSION = '\([^']*\)'.*/\1/p" src/version.ts
+} | sort -u
+```
+
+Then:
+
 ```bash
 npm whoami                 # must be logged in as the @staminna owner
 npm run test:all           # full suite must be green
 npm pack --dry-run         # sanity-check the tarball contents (dist/, README, LICENSE)
 npm publish                # prepublishOnly runs clean + build automatically
-npm view @staminna/directus-mcp-server version   # verify 12.3.0
+npm view @staminna/directus-mcp-server version   # verify the new version is live
 ```
+
+`npm pack --dry-run` is not a formality: `files` in package.json is what keeps
+`.env*` and the test suite out of the tarball. Read the list before publishing.
 
 ## 2. Publish to the MCP Registry (when ready)
 
@@ -50,5 +67,13 @@ Verify at: https://registry.modelcontextprotocol.io/v0/servers?search=directus
    - `server.json` -> `packages[0].version`
    - `src/version.ts` -> `SERVER_VERSION` (the identity reported over MCP)
 2. `npm run test:all`
-3. `npm publish`
-4. `mcp-publisher publish`
+3. `npm run badges && git diff --exit-code README.md` — CI fails on stale badges
+4. Merge the release branch into the main line **before** tagging, so the tag
+   names a commit that is actually on it.
+5. Tag the merge commit and push it:
+   ```bash
+   git tag -a vX.Y.Z -m "vX.Y.Z — summary"
+   git push origin vX.Y.Z
+   ```
+6. `npm publish`
+7. `mcp-publisher publish`
