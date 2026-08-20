@@ -1053,3 +1053,71 @@ describe('CollectionTools.bulkOperations without a create block', () => {
     }
   });
 });
+
+describe('CollectionTools.getCollectionItems on a singleton', () => {
+  it('counts a singleton object as one item instead of reporting undefined', async () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true) as any;
+    try {
+      const stub = makeClientStub();
+      // Directus answers a singleton collection with an object, not an array.
+      stub.getItems.mockResolvedValue({ data: { id: 1, title: 'hero' }, meta: { total_count: 1 } });
+      const tools = new CollectionTools(stub);
+
+      const out = text(await tools.getCollectionItems({ collection: 'homepage' }));
+
+      expect(out).toContain('Items from "homepage" (1 of 1)');
+      expect(out).not.toContain('undefined');
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+});
+
+describe('CollectionTools.bulkOperations result header', () => {
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => { stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true) as any; });
+  afterEach(() => stderrSpy.mockRestore());
+
+  it('reports failure when every operation was rejected', async () => {
+    const stub = makeClientStub();
+    stub.createItem.mockRejectedValue(new Error("You don't have permission to access this."));
+    const tools = new CollectionTools(stub);
+
+    const out = text(await tools.bulkOperations({
+      collection: 'articles',
+      operations: { create: [{ title: 'a' }] },
+    } as any));
+
+    expect(out).toContain('❌');
+    expect(out).not.toContain('✅');
+    expect(out).toContain('**Errors**: 1');
+  });
+
+  it('reports partial completion when some operations succeeded', async () => {
+    const stub = makeClientStub();
+    stub.createItem.mockResolvedValue(envelope({ id: 1 }));
+    stub.updateItem.mockRejectedValue(new Error('nope'));
+    const tools = new CollectionTools(stub);
+
+    const out = text(await tools.bulkOperations({
+      collection: 'articles',
+      operations: { create: [{ title: 'a' }], update: [{ id: 9, data: { title: 'b' } }] },
+    } as any));
+
+    expect(out).toContain('⚠️');
+    expect(out).toContain('Partially Completed');
+  });
+
+  it('reports success when nothing failed', async () => {
+    const stub = makeClientStub();
+    stub.createItem.mockResolvedValue(envelope({ id: 1 }));
+    const tools = new CollectionTools(stub);
+
+    const out = text(await tools.bulkOperations({
+      collection: 'articles',
+      operations: { create: [{ title: 'a' }] },
+    } as any));
+
+    expect(out).toContain('✅ **Bulk Operations Completed**');
+  });
+});

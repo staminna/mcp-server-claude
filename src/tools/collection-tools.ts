@@ -223,20 +223,23 @@ export class CollectionTools {
       };
 
       const response = await this.client.getItems(args.collection, options);
-      const items = response.data || [];
+      const items = response.data ?? [];
       const meta = response.meta;
+      // A singleton collection answers with an object, not an array, so
+      // items.length would be undefined and render as "undefined of 1".
+      const count = Array.isArray(items) ? items.length : 1;
 
       const duration = logger.endTimer(operationId);
       logger.toolEnd('get_collection_items', duration, true, { 
         collection: args.collection,
-        count: items.length,
+        count,
         total: meta?.total_count
       });
 
       return {
         content: [{
           type: 'text',
-          text: `Items from "${args.collection}" (${items.length}${meta?.total_count ? ` of ${meta.total_count}` : ''}):\n\n\`\`\`json\n${JSON.stringify(items, null, 2)}\n\`\`\``
+          text: `Items from "${args.collection}" (${count}${meta?.total_count ? ` of ${meta.total_count}` : ''}):\n\n\`\`\`json\n${JSON.stringify(items, null, 2)}\n\`\`\``
         }]
       };
     } catch (error) {
@@ -767,10 +770,15 @@ export class CollectionTools {
         errors: results.errors.length
       });
 
+      // The header must not read as success when every operation was rejected:
+      // an agent scanning the first line would take a total failure for a win.
+      const bulkChanged = results.created.length + results.updated.length + results.deleted.length;
+      const bulkStatusIcon = results.errors.length === 0 ? '✅' : bulkChanged > 0 ? '⚠️' : '❌';
+
       return {
         content: [{
           type: 'text',
-          text: `✅ **Bulk Operations Completed**\n\n` +
+          text: `${bulkStatusIcon} **Bulk Operations ${results.errors.length > 0 ? 'Partially Completed' : 'Completed'}**\n\n` +
                 `- **Created**: ${results.created.length}\n` +
                 `- **Updated**: ${results.updated.length}\n` +
                 `- **Deleted**: ${results.deleted.length}\n` +

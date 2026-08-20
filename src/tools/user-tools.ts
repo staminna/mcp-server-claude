@@ -43,7 +43,7 @@ export class UserTools {
         content: [{
           type: 'text',
           text: `Users (${users.length}${meta?.total_count ? ` of ${meta.total_count}` : ''}):\n\n${users.map((user: any) => 
-            `• **${user.first_name || ''} ${user.last_name || ''}** (${user.email})\n  Status: ${user.status} | Role: ${user.role || 'No role'} | Last Access: ${user.last_access || 'Never'}`
+            `• **${user.first_name || ''} ${user.last_name || ''}** (${user.email})\n  ID: ${user.id} | Status: ${user.status} | Role: ${user.role || 'No role'} | Last Access: ${user.last_access || 'Never'}`
           ).join('\n\n')}`
         }]
       };
