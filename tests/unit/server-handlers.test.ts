@@ -617,3 +617,54 @@ describe('createDeps / createServer', () => {
     expect(deps.collectionTools).toBeInstanceOf(CollectionTools);
   });
 });
+
+// Branch coverage for the non-Error rejection paths. The handlers narrow with
+// `error instanceof Error ? error.message : 'Unknown error'`, and a client can
+// reject with a bare object or string — the SDK's own RequestError is not an
+// Error subclass in every path — so the fallback arm is reachable in practice.
+describe('handler resilience to non-Error rejections', () => {
+  it('search_tools is dispatched in-process and returns matching definitions', async () => {
+    const { callTool } = createHandlers(makeDeps(), {} as NodeJS.ProcessEnv);
+
+    const result = await callTool({
+      params: { name: 'search_tools', arguments: { query: 'delete item' } },
+    });
+
+    expect((result as any).isError).toBeUndefined();
+    expect(result.content[0].text).toContain('delete_items');
+  });
+
+  it('listPrompts returns an empty list when the client rejects with a non-Error', async () => {
+    const deps = makeDeps();
+    (deps.directusClient as any).getItems.mockRejectedValue('plain string boom');
+    const { listPrompts } = createHandlers(deps, ENABLED_PROMPTS);
+
+    await expect(listPrompts()).resolves.toEqual({ prompts: [] });
+  });
+
+  it('getPrompt rethrows a non-Error rejection as a readable message', async () => {
+    const deps = makeDeps();
+    (deps.directusClient as any).getItems.mockRejectedValue({ code: 'X' });
+    const { getPrompt } = createHandlers(deps, ENABLED_PROMPTS);
+
+    await expect(getPrompt({ params: { name: 'anything' } })).rejects.toThrow();
+  });
+
+  it('listResources returns an empty list when the client rejects with a non-Error', async () => {
+    const deps = makeDeps();
+    (deps.directusClient as any).getCollections.mockRejectedValue({ code: 'X' });
+    const { listResources } = createHandlers(deps, ENABLED_RESOURCES);
+
+    await expect(listResources()).resolves.toEqual({ resources: [] });
+  });
+
+  it('readResource rethrows a non-Error rejection as a readable message', async () => {
+    const deps = makeDeps();
+    (deps.directusClient as any).getItems.mockRejectedValue('plain string boom');
+    const { readResource } = createHandlers(deps, ENABLED_RESOURCES);
+
+    await expect(
+      readResource({ params: { uri: 'directus://collections/articles' } })
+    ).rejects.toThrow();
+  });
+});

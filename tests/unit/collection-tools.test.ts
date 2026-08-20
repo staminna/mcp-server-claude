@@ -1030,3 +1030,26 @@ describe('CollectionTools', () => {
     });
   });
 });
+
+describe('CollectionTools.bulkOperations without a create block', () => {
+  it('runs updates without touching createItem', async () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true) as any;
+    try {
+      const stub = makeClientStub();
+      stub.updateItem.mockResolvedValue(envelope({ id: 1, title: 'x' }));
+      const tools = new CollectionTools(stub);
+
+      const result = await tools.bulkOperations({
+        collection: 'articles',
+        operations: { update: [{ id: 1, data: { title: 'x' } }] },
+      } as any);
+
+      expect(stub.createItem).not.toHaveBeenCalled();
+      expect(stub.updateItem).toHaveBeenCalledTimes(1);
+      expect(text(result)).toContain('**Created**: 0');
+      expect(text(result)).toContain('**Updated**: 1');
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+});

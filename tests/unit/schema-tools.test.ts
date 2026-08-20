@@ -908,3 +908,178 @@ describe('SchemaTools schema snapshot / diff / apply', () => {
     });
   });
 });
+
+// Branch-coverage tests for the defensive fallbacks. These matter because the
+// tools render whatever Directus returns: a permission-filtered instance can
+// legitimately answer with a missing `data` key or a snapshot with no
+// collections, and the tool must degrade to a readable report rather than throw.
+describe('SchemaTools defensive rendering', () => {
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true) as any;
+  });
+  afterEach(() => {
+    stderrSpy.mockRestore();
+  });
+
+  describe('get_schema_snapshot', () => {
+    it('reports unknown/zero for a snapshot missing every field', async () => {
+      const stub = makeClientStub();
+      stub.getSchemaSnapshot.mockResolvedValue(envelope({}));
+      const tools = new SchemaTools(stub);
+
+      const out = text(await tools.getSchemaSnapshot({}));
+
+      expect(out).toContain('**Directus**: unknown');
+      expect(out).toContain('**Vendor**: unknown');
+      expect(out).toContain('**Collections**: 0');
+      expect(out).toContain('**Fields**: 0');
+      expect(out).toContain('**Relations**: 0');
+    });
+  });
+
+  describe('diff_schema', () => {
+    const SNAPSHOT = { version: 1 } as any;
+
+    it('passes force through to the client', async () => {
+      const stub = makeClientStub();
+      stub.diffSchema.mockResolvedValue(envelope({ hash: 'h', diff: { collections: [] } }));
+      const tools = new SchemaTools(stub);
+
+      await tools.diffSchema({ snapshot: SNAPSHOT, force: true });
+
+      expect(stub.diffSchema).toHaveBeenCalledWith(SNAPSHOT, { force: true });
+    });
+
+    it('counts operations on a diff that is not nested under .diff', async () => {
+      const stub = makeClientStub();
+      stub.diffSchema.mockResolvedValue(
+        envelope({ collections: [{ collection: 'a' }, { collection: 'b' }], fields: [{}], relations: [] })
+      );
+      const tools = new SchemaTools(stub);
+
+      const out = text(await tools.diffSchema({ snapshot: SNAPSHOT }));
+
+      expect(out).toContain('**Collections**: 2');
+      expect(out).toContain('**Fields**: 1');
+      expect(out).toContain('**Relations**: 0');
+    });
+
+    it('counts zero when the diff sections are not arrays', async () => {
+      const stub = makeClientStub();
+      stub.diffSchema.mockResolvedValue(envelope({ diff: { collections: 'nope' } }));
+      const tools = new SchemaTools(stub);
+
+      const out = text(await tools.diffSchema({ snapshot: SNAPSHOT }));
+
+      expect(out).toContain('**Collections**: 0');
+      expect(out).toContain('**Fields**: 0');
+      expect(out).toContain('**Relations**: 0');
+    });
+  });
+
+  describe('analyze_relationships', () => {
+    it('tolerates responses with no data key', async () => {
+      const stub = makeClientStub();
+      stub.getCollections.mockResolvedValue({} as any);
+      stub.getRelations.mockResolvedValue({} as any);
+      const tools = new SchemaTools(stub);
+
+      const out = text(await tools.analyzeRelationships({}));
+
+      expect(out).not.toContain('Error');
+    });
+  });
+
+  describe('validate_collection_schema', () => {
+    it('tolerates fields and relations responses with no data key', async () => {
+      const stub = makeClientStub();
+      stub.getCollection.mockResolvedValue(envelope(ARTICLES_COLLECTION));
+      stub.getFields.mockResolvedValue({} as any);
+      stub.getRelations.mockResolvedValue({} as any);
+      const tools = new SchemaTools(stub);
+
+      const out = text(await tools.validateCollectionSchema({ collection: 'articles' }));
+
+      expect(out).toContain('articles');
+    });
+  });
+
+  describe('create_relationship', () => {
+    it('renders a success message when the result carries no details', async () => {
+      const stub = makeClientStub();
+      stub.createField.mockResolvedValue(envelope({}));
+      stub.createRelation.mockResolvedValue(envelope({}));
+      const tools = new SchemaTools(stub);
+
+      const out = text(await tools.createRelationship({
+        type: 'm2o',
+        collection: 'articles',
+        field: 'author',
+        related_collection: 'directus_users'
+      } as DirectusRelationConfig));
+
+      expect(out).toContain('M2O Relationship Created');
+      expect(out).not.toContain('undefined');
+    });
+  });
+});
+
+describe('SchemaTools relationship bucketing', () => {
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true) as any;
+  });
+  afterEach(() => {
+    stderrSpy.mockRestore();
+  });
+
+  async function analyze(relations: any[]): Promise<string> {
+    const stub = makeClientStub();
+    stub.getCollection.mockResolvedValue(envelope(ARTICLES_COLLECTION));
+    stub.getFields.mockResolvedValue(envelope(FIELDS_ARTICLES));
+    stub.getRelations.mockResolvedValue(envelope(relations));
+    const tools = new SchemaTools(stub);
+    return text(await tools.analyzeCollectionSchema({ collection: 'articles', includeRelations: true }));
+  }
+
+  it('falls back to an empty related collection on a junction relation missing one_collection', async () => {
+    const out = await analyze([
+      {
+        collection: 'articles_tags',
+        field: 'article_id',
+        meta: { junction_field: 'tag_id', many_collection: 'articles_tags', many_field: 'article_id' }
+      }
+    ]);
+
+    expect(out).not.toContain('undefined');
+  });
+
+  it('falls back to an empty related collection on an m2o missing related_collection', async () => {
+    const out = await analyze([
+      { collection: 'articles', field: 'author', meta: {} }
+    ]);
+
+    expect(out).not.toContain('undefined');
+  });
+
+  it('buckets a relation that belongs to neither side into nothing', () => {
+    // analyzeCollectionSchema pre-filters relations to those touching the
+    // collection, so this arm is unreachable through the tool. Exercised
+    // directly because buildRelationshipMap is a pure function with its own
+    // contract: a relation it cannot classify must be dropped, not mis-filed.
+    const tools = new SchemaTools(makeClientStub());
+
+    const map = (tools as any).buildRelationshipMap(
+      [{ collection: 'comments', field: 'author', related_collection: 'authors', meta: {} }],
+      'articles'
+    );
+
+    expect(map.manyToOne).toEqual([]);
+    expect(map.oneToMany).toEqual([]);
+    expect(map.manyToMany).toEqual([]);
+    expect(map.manyToAny).toEqual([]);
+  });
+});

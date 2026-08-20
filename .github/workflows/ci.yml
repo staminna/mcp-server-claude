@@ -27,7 +27,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Unit + integration tests with coverage (90% thresholds enforced)
+      - name: Unit + integration tests with coverage (95% thresholds enforced)
         run: npm run test:coverage
 
       - name: End-to-end tests (spawned stdio server)

@@ -577,3 +577,68 @@ describe('FileTools.importData', () => {
     expect(text(result)).toContain('rows.csv');
   });
 });
+
+// Branch coverage for import result rendering. A dry run against a fresh
+// instance legitimately returns a report with no `mode` and summaries with no
+// arrays, so these fallbacks are the normal path there, not an edge case.
+describe('FileTools.importData result rendering', () => {
+  const B64 = (obj: unknown) => Buffer.from(JSON.stringify(obj)).toString('base64');
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true) as any;
+  });
+  afterEach(() => {
+    stderrSpy.mockRestore();
+  });
+
+  it('defaults the mode and counts zero for summaries with no arrays', async () => {
+    const stub = makeClientStub();
+    stub.importDataBatch.mockResolvedValue({ data: { applied: true, collections: { articles: {} } } });
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    const out = text(await tools.importData({ file_data: B64([{ id: 1 }]) }));
+
+    expect(out).toContain('(mode: add)');
+    expect(out).toContain('**articles**: 0 new, 0 existing, 0 deleted');
+    expect(stub.importData).not.toHaveBeenCalled();
+  });
+
+  it('reports that nothing was affected when the result has no collections', async () => {
+    const stub = makeClientStub();
+    stub.importDataBatch.mockResolvedValue({ data: {} });
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    const out = text(await tools.importData({ file_data: B64([]) }));
+
+    expect(out).toContain('No collections were affected.');
+  });
+
+  it('derives the filename from the path when none is given', async () => {
+    const stub = makeClientStub();
+    stub.importData.mockResolvedValue({ data: null });
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    const out = text(await tools.importData({ collection: 'articles', file_path: UPLOAD_FIXTURE }));
+
+    expect(out).toContain('upload.txt');
+  });
+
+  it('forwards dangerously_allow_delete once confirmed', async () => {
+    const stub = makeClientStub();
+    stub.importDataBatch.mockResolvedValue({ data: { collections: {} } });
+    const tools = new FileTools(stub as unknown as DirectusClient);
+
+    await tools.importData({
+      file_data: B64([]),
+      mode: 'merge',
+      dangerously_allow_delete: true,
+      confirm: true,
+    });
+
+    expect(stub.importDataBatch).toHaveBeenCalledWith(
+      expect.any(FormData),
+      { mode: 'merge', dangerouslyAllowDelete: true }
+    );
+  });
+});

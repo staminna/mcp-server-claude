@@ -118,6 +118,21 @@ export class DirectusClient {
   }
 
   /**
+   * isDirectusError() indexes `errors[0]` without first checking it exists, so
+   * it throws a TypeError on a body like `{errors: []}` or `{errors: [null]}`.
+   * A malformed error body must not replace the real failure with a TypeError,
+   * so treat a throw here as "not SDK-shaped" and fall through to the manual
+   * shape handling below.
+   */
+  private isSdkShapedError(error: unknown): boolean {
+    try {
+      return isDirectusError(error);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Normalise anything thrown by the SDK into a DirectusError.
    *
    * The SDK rejects with a RequestError whose `.errors` is the response body's
@@ -125,7 +140,7 @@ export class DirectusClient {
    * legacy body shapes are still reachable and still handled.
    */
   private parseDirectusError(error: unknown): DirectusError {
-    if (isDirectusError(error)) {
+    if (this.isSdkShapedError(error)) {
       const first = (error as any).errors?.[0] ?? {};
       return {
         message: first.message || 'Unknown Directus error',

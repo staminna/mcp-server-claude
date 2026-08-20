@@ -686,3 +686,153 @@ describe('ping', () => {
     await expect(makeClient().ping()).resolves.toBe(false);
   });
 });
+
+// Branch coverage for request shaping and error normalisation. These pin
+// behaviour callers rely on: that a pre-serialised body is not double-encoded,
+// that content-version params reach the wire, and that a malformed error body
+// still yields a readable message rather than "undefined".
+describe('request shaping details', () => {
+  it('threads version and versionRaw into the query', async () => {
+    const seen = recordAll();
+
+    await makeClient().get('/items/articles', { version: 'draft', versionRaw: true });
+
+    expect(seen[0]!.url.searchParams.get('version')).toBe('draft');
+    expect(seen[0]!.url.searchParams.get('versionRaw')).toBe('true');
+  });
+
+  it('sends a pre-serialised string body verbatim rather than re-encoding it', async () => {
+    const seen = recordAll();
+    const client = makeClient();
+
+    await client.post('/utils/import/articles', '{"raw":true}');
+    await client.patch('/items/articles/1', '{"raw":true}');
+
+    expect(seen[0]!.body).toBe('{"raw":true}');
+    expect(seen[1]!.body).toBe('{"raw":true}');
+  });
+
+  it('forwards caller-supplied headers on post', async () => {
+    let seenHeader: string | null = null;
+    server.use(
+      http.post(`${DIRECTUS_URL}/items/articles`, ({ request }) => {
+        seenHeader = request.headers.get('x-test');
+        return HttpResponse.json(envelope({ ok: true }));
+      })
+    );
+
+    await makeClient().post('/items/articles', { a: 1 }, { headers: { 'X-Test': 'yes' } });
+
+    expect(seenHeader).toBe('yes');
+  });
+
+  it('passes query options through on updateItem', async () => {
+    const seen = recordAll();
+
+    await makeClient().updateItem('articles', 1, { title: 'x' }, { fields: ['id', 'title'] });
+
+    expect(seen[0]!.url.searchParams.get('fields')).toBe('id,title');
+  });
+
+  it('omits meta when the envelope carries a falsy one', async () => {
+    server.use(
+      http.get(`${DIRECTUS_URL}/items/articles`, () => HttpResponse.json({ data: [], meta: null }))
+    );
+
+    const res = await makeClient().getItems('articles');
+
+    expect(res).toEqual({ data: [] });
+    expect(res).not.toHaveProperty('meta');
+  });
+
+  it('treats a null/undefined target as nothing to delete', async () => {
+    const seen = recordAll();
+
+    await expect(makeClient().deleteItems('articles', undefined as any)).resolves.toEqual({ data: null });
+
+    expect(seen).toHaveLength(0);
+  });
+});
+
+describe('createCollection payload building', () => {
+  it('accepts name as an alias for field', async () => {
+    const seen = recordAll();
+
+    await makeClient().createCollection('widgets', {}, [{ name: 'title', type: 'string' } as any]);
+
+    const body = JSON.parse(seen[0]!.body);
+    expect(body.fields.map((f: any) => f.field)).toContain('title');
+  });
+
+  it('leaves alias fields without a schema block', async () => {
+    const seen = recordAll();
+
+    await makeClient().createCollection('widgets', {}, [{ field: 'children', type: 'alias' } as any]);
+
+    const body = JSON.parse(seen[0]!.body);
+    const children = body.fields.find((f: any) => f.field === 'children');
+    expect(children.schema).toBeUndefined();
+  });
+
+  it('does not inject an id when the caller already supplied a primary key', async () => {
+    const seen = recordAll();
+
+    await makeClient().createCollection('widgets', {}, [
+      { field: 'uuid', type: 'uuid', schema: { is_primary_key: true } } as any,
+    ]);
+
+    const body = JSON.parse(seen[0]!.body);
+    expect(body.fields).toHaveLength(1);
+    expect(body.fields[0].field).toBe('uuid');
+  });
+});
+
+describe('error normalisation edge cases', () => {
+  it('does not leak a TypeError when the error body has an empty errors array', async () => {
+    // The SDK's isDirectusError() indexes errors[0] unguarded, so this body
+    // used to surface as "Cannot use 'in' operator to search for 'message' in
+    // undefined" instead of any real diagnosis.
+    server.use(
+      http.get(`${DIRECTUS_URL}/collections`, () =>
+        HttpResponse.json({ errors: [] }, { status: 400 })
+      )
+    );
+
+    const err = await makeClient().getCollections().catch((e) => e);
+
+    expect(err).not.toBeInstanceOf(TypeError);
+    expect(err).toMatchObject({ message: expect.any(String), extensions: { code: expect.any(String) } });
+    expect(err.message).not.toContain('in operator');
+  });
+
+  it('does not leak a TypeError when the first error entry is null', async () => {
+    server.use(
+      http.get(`${DIRECTUS_URL}/collections`, () =>
+        HttpResponse.json({ errors: [null] }, { status: 400 })
+      )
+    );
+
+    await expect(makeClient().getCollections()).rejects.toMatchObject({
+      message: 'Unknown Directus error',
+      extensions: { code: 'UNKNOWN' },
+    });
+  });
+
+  it('reports a network error when the thrown error has no message', async () => {
+    const client = makeClient({ retries: 0 });
+    vi.spyOn(client as any, 'send').mockRejectedValue(new Error(''));
+
+    await expect(client.getCollections()).rejects.toBeDefined();
+  });
+});
+
+describe('ping resilience', () => {
+  it('returns false when every endpoint throws a plain Error', async () => {
+    const client = makeClient();
+    // send() rejects with a DirectusError object literal, never an Error, so
+    // the `instanceof Error` arm of ping()'s catch is only reachable this way.
+    vi.spyOn(client, 'get').mockRejectedValue(new Error('down'));
+
+    await expect(client.ping()).resolves.toBe(false);
+  });
+});

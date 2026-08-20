@@ -378,3 +378,48 @@ describe('DiagnosticTools', () => {
     });
   });
 });
+
+describe('DiagnosticTools defaults and fallbacks', () => {
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true) as any;
+  });
+  afterEach(() => {
+    stderrSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('waits the documented 2s default when no waitTime is given', async () => {
+    vi.useFakeTimers();
+    const stub = makeClientStub();
+    stub.getCollection.mockResolvedValue(envelope(COLLECTIONS[0]));
+    stub.getFields.mockResolvedValue(envelope(FIELDS_ARTICLES));
+    stub.getCollections.mockResolvedValue(envelope(COLLECTIONS));
+    const tools = new DiagnosticTools(stub);
+
+    const pending = tools.validateCollectionCreation({ collection: 'articles' });
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(textOf(await pending)).toContain('2000');
+  });
+
+  it('treats a collections response with no data key as an empty list', async () => {
+    const stub = makeClientStub();
+    stub.getCollection.mockResolvedValue(envelope(COLLECTIONS[0]));
+    stub.getFields.mockResolvedValue(envelope(FIELDS_ARTICLES));
+    stub.getCollections.mockResolvedValue({} as any);
+    const tools = new DiagnosticTools(stub);
+
+    const out = textOf(await tools.validateCollectionCreation({ collection: 'articles', waitTime: 1 }));
+
+    // The collection cannot be found in an empty list, so that step fails.
+    expect(out).toContain('collections_list_check');
+  });
+
+  it('falls back to a neutral emoji for an unrecognised status', () => {
+    const tools = new DiagnosticTools(makeClientStub());
+
+    expect((tools as any).getStatusEmoji('SOMETHING_NEW')).toBe('🔍');
+  });
+});
