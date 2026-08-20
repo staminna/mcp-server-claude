@@ -501,27 +501,6 @@ export class DirectusClient {
     return this.post('/permissions', permissionData);
   }
 
-  // Utility methods
-  private buildQueryParams(options: QueryOptions): Record<string, any> {
-    const params: Record<string, any> = {};
-
-    if (options.fields) params.fields = options.fields.join(',');
-    if (options.filter) params.filter = JSON.stringify(options.filter);
-    if (options.sort) params.sort = options.sort.join(',');
-    if (options.limit) params.limit = options.limit;
-    if (options.offset) params.offset = options.offset;
-    if (options.page) params.page = options.page;
-    if (options.search) params.search = options.search;
-    if (options.meta) params.meta = options.meta.join(',');
-    if (options.deep) params.deep = JSON.stringify(options.deep);
-    if (options.alias) params.alias = JSON.stringify(options.alias);
-    if (options.aggregate) params.aggregate = JSON.stringify(options.aggregate);
-    if (options.groupBy) params.groupBy = options.groupBy.join(',');
-    if (options.export) params.export = options.export;
-
-    return params;
-  }
-
   // Health check - try multiple endpoints as Directus versions may differ
   async ping(): Promise<boolean> {
     const endpoints = ['/server/ping', '/server/health', '/utils/health', '/admin/server/health'];
