@@ -24,8 +24,15 @@ describe('searchTools', () => {
 
   it('ranks an exact name match first', () => {
     const names = parse(searchTools(DEFS, { query: 'delete_items' })).map((t) => t.name);
-    // get_collection_schema is pinned at the front; the exact match leads the rest.
-    expect(names.filter((n) => n !== 'get_collection_schema')[0]).toBe('delete_items');
+    expect(names[0]).toBe('delete_items');
+  });
+
+  it('ranks a relevant match above the pinned tool', () => {
+    // Regression: the pin used to be unshifted, so get_collection_schema was
+    // returned as the top hit for every query that did not already match it.
+    const names = parse(searchTools(DEFS, { query: 'delete item' })).map((t) => t.name);
+    expect(names[0]).toBe('delete_items');
+    expect(names.indexOf('get_collection_schema')).toBeGreaterThan(0);
   });
 
   it('matches on keywords that do not appear in the name or description', () => {
@@ -34,9 +41,9 @@ describe('searchTools', () => {
   });
 
   it('respects the limit', () => {
+    // Regression: the pin was appended after slicing, so limit: 2 returned 3.
     const limited = parse(searchTools(DEFS, { query: 'collection', limit: 2 }));
-    // limit applies to scored matches; the pinned schema tool may be added on top.
-    expect(limited.length).toBeLessThanOrEqual(3);
+    expect(limited).toHaveLength(2);
   });
 
   it('always pins the collection schema tool', () => {

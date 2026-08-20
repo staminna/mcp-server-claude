@@ -79,12 +79,15 @@ export function searchTools(
 
   const matches = scored.slice(0, limit).map((entry) => entry.tool);
 
-  // Pin the schema tool so a successful search always includes a route into the
-  // data model, even when the query does not mention it. Not added to an empty
-  // result — "no matches" is more useful there than one unrelated tool.
-  if (!matches.some((t) => t.name === PINNED)) {
+  // Pin the schema tool so a successful search usually includes a route into the
+  // data model, even when the query does not mention it. Three constraints:
+  // it is appended, never unshifted, because a convenience pin must not outrank
+  // a tool the caller actually asked for; it only fills a spare slot, so an
+  // explicit `limit` is still honoured exactly; and it is never added to an
+  // empty result — "no matches" is more useful there than one unrelated tool.
+  if (matches.length < limit && !matches.some((t) => t.name === PINNED)) {
     const pinned = definitions.find((t) => t.name === PINNED);
-    if (pinned) matches.unshift(pinned);
+    if (pinned) matches.push(pinned);
   }
 
   return {
