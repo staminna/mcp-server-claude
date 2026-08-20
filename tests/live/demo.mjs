@@ -120,7 +120,7 @@ function record(name, status, detail) {
  * `fail` — the point is to separate "our tool is broken" from "this Directus
  * would not do it".
  */
-async function call(label, name, args, expect = () => true) {
+async function call(label, name, args, expect) {
   let res;
   try {
     res = await rpc('tools/call', { name, arguments: args });
@@ -129,16 +129,35 @@ async function call(label, name, args, expect = () => true) {
     return '';
   }
   const out = unwrap(res);
-  // Only treat it as a refusal when the tool reported a failure AND the reason
-  // came from the instance. A success summary containing "**Errors**: 0" is not
-  // a refusal.
+
+  // A rejected credential is never a pass, and it makes every later result
+  // meaningless — so it is counted separately and aborts the run. Without this
+  // an expired token produced a clean sheet of PASSes.
+  if (AUTH_FAILURE.test(out)) {
+    authFailures++;
+    record(label, 'fail', `credential rejected — ${firstLines(out, 1)}`);
+    return out;
+  }
+
+  // An explicit expectation is the contract and always wins. Guard tests assert
+  // that a tool *refuses* — their correct output starts with ❌, which must not
+  // be mistaken for a failure.
+  if (typeof expect === 'function') {
+    const verdict = expect(out);
+    if (verdict === true) record(label, 'pass', firstLines(out));
+    else record(label, 'fail', `${verdict}\n  got: ${firstLines(out)}`);
+    return out;
+  }
+
+  // With no expectation, error text is a failure unless the instance declined,
+  // which is recorded separately. Previously the default expect() returned true
+  // for everything, so any error was silently recorded green.
   const failed = /^(Error|❌)/m.test(out) || /^Error /.test(out.trim());
   const refused = failed &&
-    /FORBIDDEN|permission|Invalid user credentials|does not exist|404|not found/i.test(out);
-  const verdict = expect(out);
+    /FORBIDDEN|permission|does not exist|404|not found/i.test(out);
 
-  if (verdict !== true) record(label, 'fail', `${verdict}\n  got: ${firstLines(out)}`);
-  else if (refused) record(label, 'refused', firstLines(out));
+  if (refused) record(label, 'refused', firstLines(out));
+  else if (failed) record(label, 'fail', firstLines(out));
   else record(label, 'pass', firstLines(out));
   return out;
 }
@@ -154,6 +173,10 @@ function fencedJson(text) {
 }
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+
+/** A credential problem on our side, not the instance declining a request. */
+const AUTH_FAILURE = /Token expired|Invalid user credentials|INVALID_CREDENTIALS|TOKEN_EXPIRED/i;
+let authFailures = 0;
 
 async function main() {
   // ---- protocol ----------------------------------------------------------
@@ -200,6 +223,13 @@ async function main() {
       'analyze_relationships', 'validate_collection_schema', 'diagnose_collection_access']) {
       record(n, 'skip', 'no non-system collection visible');
     }
+  }
+
+  if (authFailures > 0) {
+    throw new Error(
+      `credential rejected by ${process.env.DIRECTUS_URL} — every later result would be meaningless. ` +
+      'Mint a fresh token and re-run.'
+    );
   }
 
   await call('validate_collection_creation', 'validate_collection_creation',
@@ -375,6 +405,9 @@ try {
   const by = (s) => results.filter((r) => r.status === s).length;
   console.log(`\n${'='.repeat(64)}`);
   console.log(`SUMMARY  pass=${by('pass')}  refused-by-instance=${by('refused')}  fail=${by('fail')}  skip=${by('skip')}  total=${results.length}`);
+  if (authFailures > 0) {
+    console.log(`\n⚠️  ${authFailures} call(s) failed on the credential itself — this run proves nothing about the instance.`);
+  }
   if (by('fail')) {
     console.log('\nFAILURES:');
     for (const r of results.filter((r) => r.status === 'fail')) {
