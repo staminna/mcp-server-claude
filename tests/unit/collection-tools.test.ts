@@ -65,6 +65,18 @@ describe('CollectionTools', () => {
       expect(text(result)).toContain('Available collections (0)');
     });
 
+
+    it('creates a grouping folder only when explicitly asked', async () => {
+      const stub = makeClientStub();
+      const tools = new CollectionTools(stub);
+
+      const out = text(await tools.createCollection({ collection: 'Loja', folder: true }));
+
+      expect(out).toContain('Folder "Loja" created successfully');
+      expect(out).toContain('cannot hold items');
+      expect(stub.createCollection).toHaveBeenCalledWith('Loja', {}, undefined, { folder: true });
+    });
+
     it('returns an error message when the client rejects', async () => {
       const stub = makeClientStub();
       stub.getCollections.mockRejectedValue(new Error('list boom'));
@@ -138,8 +150,8 @@ describe('CollectionTools', () => {
       const out = text(result);
 
       expect(out).toContain('Collection "events" created successfully');
-      expect(out).not.toContain('with');
-      expect(stub.createCollection).toHaveBeenCalledWith('events', {}, undefined);
+      expect(out).toContain('auto-increment');
+      expect(stub.createCollection).toHaveBeenCalledWith('events', {}, undefined, {});
       expect(stub.createField).not.toHaveBeenCalled();
     });
 
@@ -158,7 +170,7 @@ describe('CollectionTools', () => {
       });
 
       expect(text(result)).toContain('Collection "events" created successfully with 2 fields');
-      expect(stub.createCollection).toHaveBeenCalledWith('events', { note: 'Events' }, fields);
+      expect(stub.createCollection).toHaveBeenCalledWith('events', { note: 'Events' }, fields, {});
       expect(stub.createField).not.toHaveBeenCalled();
     });
 
@@ -1122,5 +1134,30 @@ describe('CollectionTools.bulkOperations result header', () => {
     } as any));
 
     expect(out).toContain('✅ **Bulk Operations Completed**');
+  });
+});
+
+describe('CollectionTools.listCollections marks folders', () => {
+  it('flags a schema-less collection as a folder', async () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true) as any;
+    try {
+      const stub = makeClientStub();
+      // Directus models a grouping folder as a collection with schema: null.
+      // Reading items from one answers 403, which reads as a permission problem
+      // unless the listing says otherwise.
+      stub.getCollections.mockResolvedValue(envelope([
+        { collection: 'Loja', schema: null, meta: { note: 'Menu da Loja' } },
+        { collection: 'articles', schema: { name: 'articles' }, meta: { note: 'Posts' } },
+      ]));
+      const tools = new CollectionTools(stub);
+
+      const out = text(await tools.listCollections({}));
+
+      expect(out).toContain('**Loja** _(folder — no items)_');
+      expect(out).toContain('**articles** - Posts');
+      expect(out).not.toContain('**articles** _(folder');
+    } finally {
+      stderrSpy.mockRestore();
+    }
   });
 });

@@ -150,13 +150,21 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["collection", "create", "table", "new", "model"],
-    description: 'Create a new collection with optional fields',
+    description:
+      'Create a new collection with optional fields. Creates a real table with an auto-increment ' +
+      '`id` when no fields are given; pass `folder: true` for a grouping element instead.',
     inputSchema: {
       type: 'object',
       properties: {
         collection: { type: 'string', description: 'Collection name' },
         meta: { type: 'object', description: 'Collection metadata' },
-        fields: { type: 'array', description: 'Initial fields to create' }
+        fields: { type: 'array', description: 'Initial fields to create' },
+        folder: {
+          type: 'boolean',
+          description:
+            'Create a grouping folder instead of a table. A folder has no schema, so it cannot ' +
+            'hold items and fields cannot be added to it. Default: false.'
+        }
       },
       required: ['collection'],
     },

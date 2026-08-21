@@ -473,10 +473,26 @@ describe('endpoint wrappers hit the expected method and path', () => {
     expect(res.data).toEqual(data ?? { ok: true });
   });
 
-  it('createCollection defaults meta to an empty object and schema to null (folder)', async () => {
+  it('createCollection with no fields still creates a real table with an id key', async () => {
+    // Regression: this used to send schema:null, which Directus treats as a
+    // grouping folder — so the collection reported success and then every write
+    // to it failed with "no permission ... or it does not exist".
     const seen = recordAll();
     await makeClient().createCollection('widgets');
-    expect(JSON.parse(seen[0].body)).toEqual({ collection: 'widgets', meta: {}, schema: null });
+
+    const body = JSON.parse(seen[0].body);
+    expect(body).toMatchObject({ collection: 'widgets', meta: {}, schema: {} });
+    expect(body.fields).toHaveLength(1);
+    expect(body.fields[0]).toMatchObject({
+      field: 'id',
+      schema: { is_primary_key: true, has_auto_increment: true },
+    });
+  });
+
+  it('createCollection({folder:true}) sends schema:null for a grouping element', async () => {
+    const seen = recordAll();
+    await makeClient().createCollection('Loja', {}, undefined, { folder: true });
+    expect(JSON.parse(seen[0].body)).toEqual({ collection: 'Loja', meta: {}, schema: null });
   });
 
   it('createCollection with fields sends schema:{} and injects an id primary key', async () => {

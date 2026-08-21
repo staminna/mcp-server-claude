@@ -213,8 +213,13 @@ async function main() {
 
   // ---- read-only ---------------------------------------------------------
   const cols = await call('list_collections', 'list_collections', {});
-  const names = [...cols.matchAll(/^[-•]\s*\*\*([a-zA-Z0-9_]+)\*\*/gm)].map((m) => m[1]);
-  const probe = names.find((n) => !n.startsWith('directus_'));
+  // Skip folder entries: a collection with no schema has no table behind it, so
+  // reading from it answers 403 and every read tool would report a refusal that
+  // says nothing about the tool.
+  const entries = [...cols.matchAll(/^[-•]\s*\*\*([a-zA-Z0-9_]+)\*\*(\s*_\(folder[^)]*\)_)?/gm)]
+    .map((m) => ({ name: m[1], folder: Boolean(m[2]) }));
+  const names = entries.map((e) => e.name);
+  const probe = entries.find((e) => !e.folder && !e.name.startsWith('directus_'))?.name;
   console.log(`\n   >> ${names.length} collection(s) visible; probe target: ${probe ?? '(none)'}\n`);
 
   if (probe) {
@@ -222,10 +227,15 @@ async function main() {
     await call('get_collection_items', 'get_collection_items', { collection: probe, limit: 3 });
     await call('get_collection_items(version=published)', 'get_collection_items',
       { collection: probe, limit: 2, version: 'published' });
+    // These two render a report and legitimately include ❌ when they FIND
+    // problems in the schema — that is the tool working, not failing. Assert on
+    // the report shape so the generic error heuristic does not misread them.
     await call('analyze_collection_schema', 'analyze_collection_schema',
-      { collection: probe, includeRelations: true });
-    await call('analyze_relationships', 'analyze_relationships', { collection: probe });
-    await call('validate_collection_schema', 'validate_collection_schema', { collection: probe });
+      { collection: probe, includeRelations: true }, has('Schema Analysis for'));
+    await call('analyze_relationships', 'analyze_relationships', { collection: probe },
+      has('Relationship Analysis'));
+    await call('validate_collection_schema', 'validate_collection_schema', { collection: probe },
+      has('Schema Validation for'));
     await call('diagnose_collection_access', 'diagnose_collection_access', { collection: probe });
   } else {
     for (const n of ['get_collection_schema', 'get_collection_items', 'analyze_collection_schema',
@@ -374,7 +384,13 @@ async function main() {
   const newFlow = flow.match(UUID)?.[0];
   if (newFlow) {
     await call('update_flow', 'update_flow', { id: newFlow, data: { description: 'updated by live harness' } });
-    await call('trigger_flow', 'trigger_flow', { id: newFlow, data: {} });
+    // The flow is created inactive on purpose — triggering a live webhook on a
+    // real instance would have side effects. Directus refuses to run an inactive
+    // flow, so that refusal is the expected outcome here, not a defect.
+    await call('trigger_flow (inactive flow refused)', 'trigger_flow', { id: newFlow, data: {} },
+      (t) => /permission|inactive|not found/i.test(t) || /triggered/i.test(t)
+        ? true
+        : 'expected either a successful trigger or a refusal for the inactive flow');
     await call('delete_flow', 'delete_flow', { id: newFlow, confirm: true });
   } else {
     for (const n of ['update_flow', 'trigger_flow', 'delete_flow']) record(n, 'skip', 'flow not created');

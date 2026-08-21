@@ -235,19 +235,34 @@ export class DirectusClient {
     return this.get(`/collections/${collection}`);
   }
 
+  /**
+   * Create a collection.
+   *
+   * Defaults to a real table. Directus models a schema-less collection as a
+   * grouping *folder* with no table behind it, so creating one by default made
+   * `create_collection` report success and then every write to that collection
+   * fail with "you don't have permission ... or it does not exist". Pass
+   * `{ folder: true }` when a grouping element is actually what is wanted.
+   */
   async createCollection(
     collection: string,
     meta: Record<string, any> = {},
-    fields?: Record<string, any>[]
+    fields?: Record<string, any>[],
+    options: { folder?: boolean } = {}
   ): Promise<DirectusResponse> {
     const payload: Record<string, any> = { collection, meta };
 
-    if (fields && fields.length > 0) {
+    if (options.folder) {
+      payload.schema = null;
+      return this.post('/collections', payload);
+    }
+
+    {
       // A collection with fields must be created as a real table (schema: {})
       // in a single atomic POST — adding fields after a schema-less create
       // fails because Directus treats schema:null collections as folders.
       payload.schema = {};
-      payload.fields = fields.map((f) => ({
+      payload.fields = (fields ?? []).map((f) => ({
         field: f.field ?? f.name,
         type: f.type,
         meta: f.meta ?? {
@@ -270,9 +285,6 @@ export class DirectusClient {
           schema: { is_primary_key: true, has_auto_increment: true },
         });
       }
-    } else {
-      // No fields → collection folder (grouping element), schema must be null
-      payload.schema = null;
     }
 
     return this.post('/collections', payload);

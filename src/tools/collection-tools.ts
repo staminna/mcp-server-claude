@@ -33,9 +33,14 @@ export class CollectionTools {
       return {
         content: [{
           type: 'text',
-          text: `Available collections (${collections.length}):\n\n${collections.map((c: any) => 
-            `• **${c.collection}** - ${c.meta?.note || 'No description'}`
-          ).join('\n')}`
+          text: `Available collections (${collections.length}):\n\n${collections.map((c: any) => {
+            // A collection with no schema is a folder used purely for grouping in
+            // the admin UI — there is no table behind it, so reading items from
+            // one answers 403 and reads as a permission problem. Say so here, or
+            // every caller has to discover it the confusing way.
+            const isFolder = c.schema === null || c.schema === undefined;
+            return `• **${c.collection}**${isFolder ? ' _(folder — no items)_' : ''} - ${c.meta?.note || 'No description'}`;
+          }).join('\n')}`
         }]
       };
     } catch (error) {
@@ -114,6 +119,7 @@ export class CollectionTools {
       meta?: Record<string, any>;
       schema?: Record<string, any>;
     }>;
+    folder?: boolean;
   }): Promise<any> {
     const operationId = `create_collection_${Date.now()}`;
     logger.startTimer(operationId);
@@ -126,7 +132,9 @@ export class CollectionTools {
       // (Creating the collection first and adding fields afterwards does NOT
       // work: without fields the collection is a schema-less folder, and
       // POST /fields on a folder fails with FORBIDDEN.)
-      await this.client.createCollection(args.collection, args.meta || {}, args.fields);
+      await this.client.createCollection(args.collection, args.meta || {}, args.fields, {
+        ...(args.folder !== undefined && { folder: args.folder })
+      });
 
       const duration = logger.endTimer(operationId);
       logger.toolEnd('create_collection', duration, true, { 
@@ -137,7 +145,11 @@ export class CollectionTools {
       return {
         content: [{
           type: 'text',
-          text: `Collection "${args.collection}" created successfully${args.fields ? ` with ${args.fields.length} fields` : ''}.`
+          text: args.folder
+            ? `Folder "${args.collection}" created successfully. It groups other collections in ` +
+              'the admin UI and has no table, so it cannot hold items.'
+            : `Collection "${args.collection}" created successfully` +
+              `${args.fields?.length ? ` with ${args.fields.length} fields` : ' with an auto-increment `id`'}.`
         }]
       };
     } catch (error) {
