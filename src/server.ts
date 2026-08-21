@@ -31,16 +31,17 @@ export interface ServerDeps {
   diagnosticTools: DiagnosticTools;
 }
 
-// Configuration - WebSocket disabled to reduce logging noise
+// Configuration. Note: `websocket` is currently inert — DirectusWebSocketClient is
+// exported from lib.ts for library consumers but is not wired into the MCP server.
 export function loadConfigFromEnv(env: NodeJS.ProcessEnv = process.env): DirectusConfig {
   return {
     url: env.DIRECTUS_URL || 'http://localhost:8065',
-    token: env.DIRECTUS_TOKEN || env.DIRECTUS_TOKEN!,
+    token: env.DIRECTUS_TOKEN!,
     timeout: parseInt(env.DIRECTUS_TIMEOUT || '30000'),
     retries: parseInt(env.DIRECTUS_RETRIES || '3'),
     retryDelay: parseInt(env.DIRECTUS_RETRY_DELAY || '1000'),
     maxRetryDelay: parseInt(env.DIRECTUS_MAX_RETRY_DELAY || '10000'),
-    websocket: false, // Disabled to reduce logging noise
+    websocket: false, // Not consumed by the MCP server; see note above.
     // HTTPS Certificate Configuration
     https: (env.DIRECTUS_HTTPS_CA ||
            env.DIRECTUS_HTTPS_CERT ||

@@ -9,7 +9,7 @@ import { logger } from './utils/logger.js';
 const config = loadConfigFromEnv();
 
 if (!config.token) {
-  logger.error('DIRECTUS_TOKEN or DIRECTUS_TOKEN environment variable is required');
+  logger.error('DIRECTUS_TOKEN environment variable is required');
   process.exit(1);
 }
 
@@ -39,7 +39,7 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  logger.info('Enhanced Directus MCP Server running on stdio (WebSocket disabled for clean logging)');
+  logger.info('Directus MCP Server running on stdio');
 }
 
 // Handle graceful shutdown
