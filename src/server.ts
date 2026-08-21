@@ -818,13 +818,20 @@ export const TOOL_DEFINITIONS = [
     description:
       'Import rows from a CSV or JSON file into one collection, or into several related ' +
       'collections at once using a flat multi-collection file. Subject to the Directus ' +
-      'IMPORT_MAX_FILE_SIZE limit (50mb by default).',
+      'IMPORT_MAX_FILE_SIZE limit (50mb by default).\n\n' +
+      'Single-collection: pass `collection`; the file is a plain array of rows.\n' +
+      'Batch (Directus 12.2+): omit `collection`; the file MUST be a JSON array of ' +
+      '`{ "collection": string, "items": object[] }` entries, e.g.\n' +
+      '[{"collection":"authors","items":[{"name":"Ann"}]},' +
+      '{"collection":"articles","items":[{"title":"Hi","author":1}]}]',
     inputSchema: {
       type: 'object',
       properties: {
         collection: {
           type: 'string',
-          description: 'Target collection. Omit for a multi-collection batch import.'
+          description:
+            'Target collection. Omit for a multi-collection batch import, in which case the ' +
+            'file must be an array of { collection, items } entries rather than a bare row array.'
         },
         file_path: { type: 'string', description: 'Path to a local .csv or .json file' },
         file_data: { type: 'string', description: 'Base64-encoded file contents (alternative to file_path)' },

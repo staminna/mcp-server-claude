@@ -152,7 +152,15 @@ async function call(label, name, args, expect) {
   // With no expectation, error text is a failure unless the instance declined,
   // which is recorded separately. Previously the default expect() returned true
   // for everything, so any error was silently recorded green.
-  const failed = /^(Error|❌)/m.test(out) || /^Error /.test(out.trim());
+  // Failure markers are not always at the start of a line: a report-shaped tool
+  // renders "- **step**: ❌ ..." mid-line, and a run where every step failed
+  // ("0% (0/3 steps passed)") was being recorded green. A JSON-RPC-level error
+  // was missed entirely because unwrap() prefixes it "RPC error:".
+  const failed =
+    /❌/.test(out) ||
+    /^Error /m.test(out.trim()) ||
+    out.startsWith('RPC error:') ||
+    /\b0%\s*\(0\/\d+/.test(out);
   const refused = failed &&
     /FORBIDDEN|permission|does not exist|404|not found/i.test(out);
 
@@ -175,7 +183,8 @@ function fencedJson(text) {
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
 
 /** A credential problem on our side, not the instance declining a request. */
-const AUTH_FAILURE = /Token expired|Invalid user credentials|INVALID_CREDENTIALS|TOKEN_EXPIRED/i;
+const AUTH_FAILURE =
+  /Token expired|Invalid user credentials|INVALID_CREDENTIALS|TOKEN_EXPIRED|INVALID_TOKEN|USER_SUSPENDED/i;
 let authFailures = 0;
 
 async function main() {
@@ -262,10 +271,18 @@ async function main() {
   await call('get_schema_snapshot(include+exclude rejected)', 'get_schema_snapshot',
     { include_collections: ['a'], exclude_collections: ['b'] }, has('mutually exclusive'));
 
-  if (fullSnap) {
-    await call('diff_schema(self, mirror)', 'diff_schema', { snapshot: fullSnap, mode: 'mirror' });
-    await call('diff_schema(self, merge)', 'diff_schema', { snapshot: fullSnap, mode: 'merge' });
-  } else {
+  // Diff a PARTIAL snapshot: a full one exceeds the 100 KiB body limit Directus
+  // enforces on any instance with a real data model, so the full-snapshot form
+  // is not a meaningful test of the tool.
+  const partialSnap = probe ? fencedJson(await call('get_schema_snapshot(for diff)',
+    'get_schema_snapshot', { include_collections: [probe] })) : null;
+
+  if (partialSnap) {
+    await call('diff_schema(partial, mirror)', 'diff_schema', { snapshot: partialSnap, mode: 'mirror' });
+    await call('diff_schema(partial, merge)', 'diff_schema', { snapshot: partialSnap, mode: 'merge' });
+    await call('diff_schema(oversized refused)', 'diff_schema',
+      { snapshot: { version: 1, pad: 'x'.repeat(150 * 1024) } }, has('request-body limit'));
+  } else if (fullSnap) {
     for (const n of ['diff_schema(self, mirror)', 'diff_schema(self, merge)']) {
       record(n, 'skip', 'no snapshot returned to diff against');
     }
@@ -297,7 +314,8 @@ async function main() {
 
   // ---- writes ------------------------------------------------------------
   const WRITE_TOOLS = ['create_collection', 'create_field', 'update_field', 'create_item',
-    'update_item', 'bulk_operations(real)', 'import_data', 'delete_items(real)',
+    'update_item', 'bulk_operations(real)', 'import_data(single collection)',
+    'import_data(batch, dry run)', 'delete_items(real)',
     'create_relationship', 'delete_field', 'create_flow', 'update_flow', 'trigger_flow',
     'delete_flow', 'delete_collection'];
 
@@ -327,9 +345,19 @@ async function main() {
 
   await call('bulk_operations(real)', 'bulk_operations',
     { collection: SCRATCH, operations: { create: [{ title: 'bulk-a' }, { title: 'bulk-b' }] } });
-  await call('import_data', 'import_data',
+  await call('import_data(single collection)', 'import_data',
     { collection: SCRATCH, file_data: Buffer.from(JSON.stringify([{ title: 'imported' }])).toString('base64'),
       filename: 'rows.json' });
+
+  // Omitting `collection` is what routes to POST /utils/import, the Directus
+  // 12.2 multi-collection batch endpoint. Every earlier run passed a collection
+  // and so only ever exercised /utils/import/:collection — the batch path was
+  // never reached, regardless of server version.
+  await call('import_data(batch, dry run)', 'import_data',
+    { file_data: Buffer.from(JSON.stringify([
+        { collection: SCRATCH, items: [{ title: 'batch' }] }
+      ])).toString('base64'),
+      filename: 'batch.json', mode: 'add', dry_run: true });
 
   if (itemId) {
     await call('delete_items(real)', 'delete_items', { collection: SCRATCH, ids: [itemId], confirm: true });
@@ -390,7 +418,12 @@ async function cleanup() {
   }
   const left = await call('verify no leftovers', 'list_collections', {},
     (t) => t.includes(SCRATCH) ? `${SCRATCH} still present` : true);
-  if (!left.includes(SCRATCH)) console.log(`   >> ${SCRATCH} removed`);
+  // Only claim removal when the check itself succeeded. An errored listing does
+  // not mention the collection either, and reporting that as "removed" is a
+  // false all-clear on exactly the run where cleanup is most likely to have failed.
+  const listingWorked = left.includes('Available collections');
+  if (!listingWorked) console.log(`   !! could not verify: check for ${SCRATCH} manually`);
+  else if (!left.includes(SCRATCH)) console.log(`   >> ${SCRATCH} removed`);
 }
 
 let exitCode = 0;

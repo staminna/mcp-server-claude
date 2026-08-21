@@ -181,6 +181,18 @@ export class DirectusClient {
       };
     }
 
+    // Distinguish "the server rejected this" from "the server was unreachable".
+    // The SDK's RequestError carries the Response, so a malformed error body
+    // (e.g. `{errors: []}` on a 400) must not be reported as a network failure —
+    // that collides with a real socket error and misdirects the caller entirely.
+    const status = (error as any)?.response?.status;
+    if (typeof status === 'number') {
+      return {
+        message: (error as Error)?.message || `Directus returned HTTP ${status} with no error detail`,
+        extensions: { code: (error as any)?.code || 'REQUEST_FAILED', status }
+      };
+    }
+
     return {
       message: (error as Error)?.message || 'Network error',
       extensions: { code: (error as any)?.code || 'NETWORK_ERROR' }
@@ -275,8 +287,20 @@ export class DirectusClient {
   }
 
   // Item operations
+  /**
+   * Read items from a collection.
+   *
+   * A singleton collection answers with a bare object rather than an array.
+   * The declared return type has always been T[], and every caller assumed it,
+   * so the shape is normalised here — three call sites were each getting this
+   * wrong in a different way (an "undefined" item count, a silent count of 0,
+   * and a `.map is not a function` crash mid-delete).
+   */
   async getItems<T = any>(collection: string, options: QueryOptions = {}): Promise<DirectusResponse<T[]>> {
-    return this.get(`/items/${collection}`, options);
+    const response = await this.get<T | T[]>(`/items/${collection}`, options);
+    const raw = response.data;
+    const data = (raw === null || raw === undefined ? [] : Array.isArray(raw) ? raw : [raw]) as T[];
+    return { ...response, data };
   }
 
   async getItem<T = any>(collection: string, id: string | number, options: QueryOptions = {}): Promise<DirectusResponse<T>> {

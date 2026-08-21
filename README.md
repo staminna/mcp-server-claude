@@ -10,7 +10,7 @@ Enhanced MCP (Model Context Protocol) server for Directus v12.3.0 with TypeScrip
 
 | Statements | Branches | Functions | Lines |
 |------------|----------|-----------|-------|
-| ![Statements](https://img.shields.io/badge/statements-98.63%25-brightgreen.svg?style=flat) | ![Branches](https://img.shields.io/badge/branches-98.15%25-brightgreen.svg?style=flat) | ![Functions](https://img.shields.io/badge/functions-97.29%25-brightgreen.svg?style=flat) | ![Lines](https://img.shields.io/badge/lines-98.63%25-brightgreen.svg?style=flat) |
+| ![Statements](https://img.shields.io/badge/statements-98.65%25-brightgreen.svg?style=flat) | ![Branches](https://img.shields.io/badge/branches-98.02%25-brightgreen.svg?style=flat) | ![Functions](https://img.shields.io/badge/functions-97.3%25-brightgreen.svg?style=flat) | ![Lines](https://img.shields.io/badge/lines-98.64%25-brightgreen.svg?style=flat) |
 
 Coverage badges are generated from `coverage/coverage-summary.json` by `npm run badges` (no external service required). Run `npm run test:coverage` first.
 

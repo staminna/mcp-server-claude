@@ -415,6 +415,8 @@ export interface DirectusError {
     code: string;
     collection?: string;
     field?: string;
+    /** HTTP status, when the failure came from a response rather than the socket. */
+    status?: number;
   };
 }
 

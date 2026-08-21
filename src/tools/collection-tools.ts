@@ -726,28 +726,40 @@ export class CollectionTools {
         }
       }
 
-      // Execute create operations
+      // Each item is attempted independently. The try/catch used to sit OUTSIDE
+      // these loops, so the first rejected item silently abandoned every
+      // remaining item of that type: 5 creates with the first failing reported
+      // "Created: 0, Errors: 1" and never said the other 4 were not attempted.
       if (args.operations.create && args.operations.create.length > 0) {
-        try {
-          for (const item of args.operations.create) {
+        for (const [index, item] of args.operations.create.entries()) {
+          try {
             const response = await this.client.createItem(args.collection, item);
             results.created.push(response.data);
+          } catch (error) {
+            results.errors.push({
+              operation: 'create',
+              index,
+              error: (error as Error).message
+            });
           }
-        } catch (error) {
-          results.errors.push({ operation: 'create', error: (error as Error).message });
         }
       }
 
       // Execute update operations
       if (args.operations.update && args.operations.update.length > 0) {
-        try {
-          for (const item of args.operations.update) {
-            const { id, ...data } = item;
+        for (const [index, item] of args.operations.update.entries()) {
+          const { id, ...data } = item;
+          try {
             const response = await this.client.updateItem(args.collection, id, data);
             results.updated.push(response.data);
+          } catch (error) {
+            results.errors.push({
+              operation: 'update',
+              index,
+              id,
+              error: (error as Error).message
+            });
           }
-        } catch (error) {
-          results.errors.push({ operation: 'update', error: (error as Error).message });
         }
       }
 

@@ -1083,3 +1083,68 @@ describe('SchemaTools relationship bucketing', () => {
     expect(map.manyToAny).toEqual([]);
   });
 });
+
+// Directus discards request bodies over 100 KiB and reports them as missing.
+// These pin the pre-flight guard, because the failure it prevents says the
+// opposite of what happened ("No data was included in the body" for a 214 KiB
+// body) and is therefore actively misleading to an agent.
+describe('SchemaTools oversized payload guard', () => {
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true) as any;
+  });
+  afterEach(() => {
+    stderrSpy.mockRestore();
+    delete process.env.DIRECTUS_MAX_PAYLOAD_BYTES;
+  });
+
+  function bigSnapshot(bytes: number): any {
+    return { version: 1, directus: '12.3.0', collections: [], pad: 'x'.repeat(bytes) };
+  }
+
+  it('refuses a snapshot over the limit without calling the client', async () => {
+    const stub = makeClientStub();
+    const tools = new SchemaTools(stub);
+
+    const out = text(await tools.diffSchema({ snapshot: bigSnapshot(150 * 1024) }));
+
+    expect(out).toContain('over the 100 KiB request-body limit');
+    expect(out).toContain('include_collections');
+    expect(stub.diffSchema).not.toHaveBeenCalled();
+  });
+
+  it('lets a snapshot under the limit through', async () => {
+    const stub = makeClientStub();
+    stub.diffSchema.mockResolvedValue(envelope({ hash: 'h', diff: { collections: [] } }));
+    const tools = new SchemaTools(stub);
+
+    await tools.diffSchema({ snapshot: bigSnapshot(1024) });
+
+    expect(stub.diffSchema).toHaveBeenCalled();
+  });
+
+  it('refuses an oversized diff in apply_schema', async () => {
+    const stub = makeClientStub();
+    const tools = new SchemaTools(stub);
+
+    const out = text(await tools.applySchema({
+      diff: { hash: 'h', diff: { pad: 'x'.repeat(150 * 1024) } },
+      confirm: true
+    }));
+
+    expect(out).toContain('over the 100 KiB request-body limit');
+    expect(stub.applySchema).not.toHaveBeenCalled();
+  });
+
+  it('honours DIRECTUS_MAX_PAYLOAD_BYTES for instances configured differently', async () => {
+    process.env.DIRECTUS_MAX_PAYLOAD_BYTES = String(1024 * 1024);
+    const stub = makeClientStub();
+    stub.diffSchema.mockResolvedValue(envelope({ hash: 'h', diff: { collections: [] } }));
+    const tools = new SchemaTools(stub);
+
+    await tools.diffSchema({ snapshot: bigSnapshot(150 * 1024) });
+
+    expect(stub.diffSchema).toHaveBeenCalled();
+  });
+});

@@ -398,6 +398,12 @@ export class SchemaTools {
         };
       }
 
+      const tooLarge = this.payloadTooLarge(args.snapshot, 'This snapshot');
+      if (tooLarge) {
+        logger.endTimer(operationId);
+        return { content: [{ type: 'text', text: tooLarge }] };
+      }
+
       logger.toolStart('diff_schema', { mode: args.mode, force: args.force });
 
       const response = await this.client.diffSchema(args.snapshot, {
@@ -467,6 +473,12 @@ export class SchemaTools {
         };
       }
 
+      const applyTooLarge = this.payloadTooLarge(args.diff, 'This diff');
+      if (applyTooLarge) {
+        logger.endTimer(operationId);
+        return { content: [{ type: 'text', text: applyTooLarge }] };
+      }
+
       const counts = this.summarizeDiff(args.diff);
 
       if (!args.confirm) {
@@ -509,6 +521,30 @@ export class SchemaTools {
         }]
       };
     }
+  }
+
+  /**
+   * Directus caps request bodies at 100 KiB (102400 bytes) and, over that,
+   * silently discards the body and answers 400 "No data was included in the
+   * body" — not a 413. Setting MAX_PAYLOAD_SIZE does not move it (verified
+   * inert on 12.3.0 in both directions), so the only reliable remedy is to send
+   * less. Catch it here rather than let the caller see a message that says the
+   * opposite of what happened.
+   */
+  private payloadTooLarge(payload: unknown, what: string): string | null {
+    const limit = Number(process.env.DIRECTUS_MAX_PAYLOAD_BYTES) || 102_400;
+    const bytes = Buffer.byteLength(JSON.stringify(payload ?? null), 'utf8');
+    if (bytes <= limit) return null;
+
+    return `❌ ${what} is ${(bytes / 1024).toFixed(0)} KiB, over the ` +
+      `${(limit / 1024).toFixed(0)} KiB request-body limit Directus enforces.\n\n` +
+      'Directus discards a body this large and reports it as missing, so sending it would ' +
+      'fail with a misleading error. Take a **partial** snapshot instead and compare one ' +
+      'slice of the data model at a time:\n\n' +
+      '```json\n{ "include_collections": ["articles", "authors"] }\n```\n\n' +
+      'Pass that to `get_schema_snapshot` (it reports `version: 2` for a partial snapshot), ' +
+      'then diff the result. Override the assumed limit with `DIRECTUS_MAX_PAYLOAD_BYTES` ' +
+      'if this instance is configured differently.';
   }
 
   /** Count the operations in a schema diff, tolerating a missing section. */

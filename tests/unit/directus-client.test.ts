@@ -419,13 +419,17 @@ describe('endpoint wrappers hit the expected method and path', () => {
     call: (c: DirectusClient) => Promise<unknown>;
     method: string;
     path: string;
+    /** Defaults to the raw envelope; set where a wrapper reshapes the payload. */
+    data?: unknown;
   }> = [
     { name: 'getCollections', call: (c) => c.getCollections(), method: 'GET', path: '/collections' },
     { name: 'getCollection', call: (c) => c.getCollection('articles'), method: 'GET', path: '/collections/articles' },
     { name: 'createCollection', call: (c) => c.createCollection('widgets'), method: 'POST', path: '/collections' },
     { name: 'updateCollection', call: (c) => c.updateCollection('articles', { note: 'x' }), method: 'PATCH', path: '/collections/articles' },
     { name: 'deleteCollection', call: (c) => c.deleteCollection('articles'), method: 'DELETE', path: '/collections/articles' },
-    { name: 'getItems', call: (c) => c.getItems('articles'), method: 'GET', path: '/items/articles' },
+    // getItems normalises a singleton object into an array, so the mock's bare
+    // envelope comes back wrapped. See DirectusClient.getItems.
+    { name: 'getItems', call: (c) => c.getItems('articles'), method: 'GET', path: '/items/articles', data: [{ ok: true }] },
     { name: 'getItem', call: (c) => c.getItem('articles', 1), method: 'GET', path: '/items/articles/1' },
     { name: 'createItem', call: (c) => c.createItem('articles', { title: 'a' }), method: 'POST', path: '/items/articles' },
     { name: 'createItems', call: (c) => c.createItems('articles', [{ title: 'a' }, { title: 'b' }]), method: 'POST', path: '/items/articles' },
@@ -458,7 +462,7 @@ describe('endpoint wrappers hit the expected method and path', () => {
     { name: 'getServerInfo', call: (c) => c.getServerInfo(), method: 'GET', path: '/server/info' },
   ];
 
-  it.each(rows)('$name -> $method $path', async ({ call, method, path: expectedPath }) => {
+  it.each(rows)('$name -> $method $path', async ({ call, method, path: expectedPath, data }) => {
     const seen = recordAll();
 
     const res: any = await call(makeClient());
@@ -466,7 +470,7 @@ describe('endpoint wrappers hit the expected method and path', () => {
     expect(seen).toHaveLength(1);
     expect(seen[0].method).toBe(method);
     expect(seen[0].url.pathname).toBe(expectedPath);
-    expect(res.data).toEqual({ ok: true });
+    expect(res.data).toEqual(data ?? { ok: true });
   });
 
   it('createCollection defaults meta to an empty object and schema to null (folder)', async () => {
@@ -834,5 +838,51 @@ describe('ping resilience', () => {
     vi.spyOn(client, 'get').mockRejectedValue(new Error('down'));
 
     await expect(client.ping()).resolves.toBe(false);
+  });
+});
+
+describe('getItems shape normalisation', () => {
+  it('wraps a singleton object into an array', async () => {
+    // Directus answers a singleton collection with a bare object. The declared
+    // return type is T[], and three call sites assumed it — an item count that
+    // rendered "undefined", a silent count of 0, and a `.map is not a function`
+    // crash partway through a cascade delete.
+    server.use(
+      http.get(`${DIRECTUS_URL}/items/homepage`, () =>
+        HttpResponse.json({ data: { id: 1, title: 'hero' }, meta: { total_count: 1 } })
+      )
+    );
+
+    const res = await makeClient().getItems('homepage');
+
+    expect(Array.isArray(res.data)).toBe(true);
+    expect(res.data).toEqual([{ id: 1, title: 'hero' }]);
+    expect(res.meta).toEqual({ total_count: 1 });
+  });
+
+  it('leaves an array untouched and maps null to an empty array', async () => {
+    server.use(
+      http.get(`${DIRECTUS_URL}/items/articles`, () => HttpResponse.json({ data: [{ id: 1 }, { id: 2 }] })),
+      http.get(`${DIRECTUS_URL}/items/empty`, () => HttpResponse.json({ data: null }))
+    );
+
+    const client = makeClient();
+    expect((await client.getItems('articles')).data).toEqual([{ id: 1 }, { id: 2 }]);
+    expect((await client.getItems('empty')).data).toEqual([]);
+  });
+});
+
+describe('error mapping distinguishes rejection from unreachability', () => {
+  it('reports the HTTP status when the body carries no usable error', async () => {
+    server.use(
+      http.get(`${DIRECTUS_URL}/collections`, () => HttpResponse.json({ errors: [] }, { status: 400 }))
+    );
+
+    const err: any = await makeClient().getCollections().catch((e) => e);
+
+    // Previously this said "Network error" / NETWORK_ERROR, colliding with a
+    // genuine socket failure and pointing the caller at the wrong problem.
+    expect(err.extensions.status).toBe(400);
+    expect(err.extensions.code).not.toBe('NETWORK_ERROR');
   });
 });
