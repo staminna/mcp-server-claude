@@ -1,6 +1,6 @@
 {
   "name": "@staminna/directus-mcp-server",
-  "version": "12.3.2",
+  "version": "12.3.3",
   "description": "MCP server for Directus 12 — items, collections, files, flows, users, and schema tools",
   "mcpName": "io.github.staminna/directus-mcp-server",
   "main": "dist/lib.js",
