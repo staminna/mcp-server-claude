@@ -299,7 +299,7 @@ For Claude.ai web interface with MCP support:
 | `validate_collection_schema` | Validate schema and relationships |
 | `analyze_relationships` | Analyze relationships across collections |
 | `get_schema_snapshot` | Read a full or partial snapshot of the data model |
-| `diff_schema` | Compare a snapshot against the live schema (`merge` or `mirror`) |
+| `diff_schema` | Compare a snapshot against the live schema (`merge` or `mirror`). Directus drops request bodies over ~96 KB, so pass a partial snapshot from `get_schema_snapshot` with `include_collections` on any sizeable data model — see `DIRECTUS_V12_BREAKING_CHANGES.md` |
 | `apply_schema` | Apply a diff (requires `confirm`) |
 
 ### Flow Management

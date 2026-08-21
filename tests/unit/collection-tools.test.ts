@@ -1088,8 +1088,11 @@ describe('CollectionTools.bulkOperations result header', () => {
       operations: { create: [{ title: 'a' }] },
     } as any));
 
-    expect(out).toContain('❌');
+    expect(out).toContain('❌ **Bulk Operations Failed**');
     expect(out).not.toContain('✅');
+    // Regression: the icon said ❌ while the label still read "Partially
+    // Completed", so the header contradicted itself.
+    expect(out).not.toContain('Partially Completed');
     expect(out).toContain('**Errors**: 1');
   });
 

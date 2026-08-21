@@ -772,13 +772,19 @@ export class CollectionTools {
 
       // The header must not read as success when every operation was rejected:
       // an agent scanning the first line would take a total failure for a win.
+      // Icon and label must come from ONE decision. Deriving them separately
+      // produced "❌ Bulk Operations Partially Completed" — nothing succeeded,
+      // yet the wording claimed partial success.
       const bulkChanged = results.created.length + results.updated.length + results.deleted.length;
-      const bulkStatusIcon = results.errors.length === 0 ? '✅' : bulkChanged > 0 ? '⚠️' : '❌';
+      const bulkOutcome =
+        results.errors.length === 0 ? { icon: '✅', label: 'Completed' } :
+        bulkChanged > 0 ? { icon: '⚠️', label: 'Partially Completed' } :
+        { icon: '❌', label: 'Failed' };
 
       return {
         content: [{
           type: 'text',
-          text: `${bulkStatusIcon} **Bulk Operations ${results.errors.length > 0 ? 'Partially Completed' : 'Completed'}**\n\n` +
+          text: `${bulkOutcome.icon} **Bulk Operations ${bulkOutcome.label}**\n\n` +
                 `- **Created**: ${results.created.length}\n` +
                 `- **Updated**: ${results.updated.length}\n` +
                 `- **Deleted**: ${results.deleted.length}\n` +

@@ -166,3 +166,44 @@ Internal to the storage drivers.
   `@modelcontextprotocol/sdk` `^1.17.4` → `^1.30.0`. `form-data`,
   `@types/form-data` and `csv-parse` dropped — the first is replaced by Node's
   global `FormData`, the last was never imported.
+
+---
+
+## Observed limitation: request bodies over ~96 KB are dropped
+
+Verified against a live Directus **12.0.2** and again after upgrading the same
+instance to **12.3.0** — the behaviour is identical on both.
+
+`POST /schema/diff` with a JSON body larger than roughly 96 KB is answered with:
+
+```
+400  Invalid payload. No data was included in the body.
+```
+
+Not a `413`. The body is silently discarded and Directus reports it as absent.
+Bodies up to 96 KB arrive intact — provable because Directus then validates their
+*content* (an unknown key is rejected by name) rather than claiming the body is
+missing. The cutoff sits between 96 KB and 100 KB.
+
+This is **not** caused by this MCP server, and **not** by the reverse proxy:
+`curl` sent directly to the Directus container, bypassing nginx entirely,
+reproduces it exactly.
+
+### Why it matters
+
+A full schema snapshot is easily larger than this. On a 19-collection instance
+the snapshot was ~214 KB, so `diff_schema` could never run against it.
+
+### Workaround
+
+Use the Directus 12.2 partial-snapshot feature to keep the payload under the
+limit, and diff one slice of the data model at a time:
+
+```jsonc
+// instead of a full snapshot, take only what you intend to compare
+{ "tool": "get_schema_snapshot", "include_collections": ["articles", "authors"] }
+```
+
+A partial snapshot reports `version: 2` (a full one is `version: 1`), and
+`diff_schema` accepts it unchanged. This is the practical reason to prefer
+`include_collections` on any instance with a non-trivial data model.
