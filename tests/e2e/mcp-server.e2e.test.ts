@@ -6,6 +6,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startMockDirectus, type MockDirectus } from '../helpers/mock-directus.js';
+import { SERVER_VERSION } from '../../src/version.js';
 
 const REPO = process.cwd();
 
@@ -88,9 +89,11 @@ describe('MCP server e2e (features enabled)', () => {
   }, 15_000);
 
   it('reports its server identity', () => {
+    // Version comes from src/version.ts so a bump needs no test edit; the name
+    // is pinned deliberately, because changing it breaks existing client configs.
     expect(client.getServerVersion()).toMatchObject({
       name: 'directus-mcp-server-enhanced',
-      version: '12.3.0',
+      version: SERVER_VERSION,
     });
   });
 

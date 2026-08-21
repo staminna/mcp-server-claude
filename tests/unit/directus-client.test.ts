@@ -17,6 +17,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DirectusClient } from '../../src/client/directus-client.js';
+import { SERVER_NAME, SERVER_VERSION } from '../../src/version.js';
 import { server, http, HttpResponse, DIRECTUS_URL } from '../helpers/msw.js';
 import {
   envelope,
@@ -107,7 +108,9 @@ describe('constructor and auth', () => {
     await makeClient().getServerInfo();
 
     expect(auth).toBe('Bearer test-token');
-    expect(userAgent).toBe('directus-mcp-server-enhanced/12.3.0');
+    // Derived from the single source of truth so a version bump does not need a
+    // test edit — what matters is the shape, not the literal number.
+    expect(userAgent).toBe(`${SERVER_NAME}/${SERVER_VERSION}`);
   });
 
   it('omits the Authorization header when no token is configured', async () => {
