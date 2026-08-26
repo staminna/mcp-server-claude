@@ -49,12 +49,10 @@
     "mcp-server",
     "model-context-protocol",
     "typescript",
-    "websocket",
     "api",
     "claude",
     "ai",
-    "cms",
-    "real-time"
+    "cms"
   ],
   "author": "Jorge Domingues Nunes",
   "license": "MIT",

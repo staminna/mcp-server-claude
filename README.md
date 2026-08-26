@@ -23,7 +23,6 @@ Coverage badges are generated from `coverage/coverage-summary.json` by `npm run 
 - 👥 **User Management** - User CRUD and role management
 - 🔍 **Schema Tools** - Analyze and validate collection schemas
 - 🩺 **Diagnostics** - Collection access diagnostics and troubleshooting
-- ⚡ **WebSocket Support** - Real-time subscriptions (coming soon)
 
 ## Installation
 
