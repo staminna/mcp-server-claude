@@ -1,59 +1,90 @@
-// End-to-end startup failure paths: the CLI must exit(1) on missing token or
-// unreachable Directus. Raw child_process spawn — no MCP handshake involved.
+// End-to-end startup resilience: the built CLI must come up and answer
+// introspection with no credentials, and with Directus unreachable. A registry
+// probe (Glama's listing check) runs the server with an empty environment and
+// expects the handshake to complete; only tool calls need a token, and they
+// report the failure themselves.
+//
+// This file previously pinned the opposite contract — exit(1) on a missing
+// token or a failed health check — which made the server unintrospectable.
 import { describe, it, expect } from 'vitest';
 import { spawn } from 'node:child_process';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const REPO = process.cwd();
 
-interface RunResult {
-  code: number | null;
-  stderr: string;
+function inheritedEnv(): Record<string, string> {
+  // Filter undefined values out of process.env for the spawn env type.
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([, v]) => v !== undefined)
+  ) as Record<string, string>;
 }
 
-function runServer(env: Record<string, string>, timeoutMs = 20_000): Promise<RunResult> {
-  return new Promise((resolve, reject) => {
-    const inherited = Object.fromEntries(
-      Object.entries(process.env).filter(([, v]) => v !== undefined)
-    ) as Record<string, string>;
+// Empty string masks any token from the repo .env (dotenv never overrides).
+const NO_TOKEN = { DIRECTUS_TOKEN: '', DIRECTUS_URL: 'http://127.0.0.1:9' };
+
+// A token, but a closed port behind it: the startup health check cannot pass.
+const UNREACHABLE = {
+  DIRECTUS_TOKEN: 'a-token',
+  DIRECTUS_URL: 'http://127.0.0.1:9',
+  DIRECTUS_RETRIES: '1',
+  DIRECTUS_RETRY_DELAY: '1',
+  DIRECTUS_MAX_RETRY_DELAY: '2',
+};
+
+async function connect(env: Record<string, string>): Promise<Client> {
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: ['dist/index.js'],
+    cwd: REPO,
+    env: { ...inheritedEnv(), LOG_LEVEL: 'ERROR', ...env },
+  });
+  const client = new Client({ name: 'startup-e2e', version: '1.0.0' });
+  await client.connect(transport);
+  return client;
+}
+
+describe('startup resilience', () => {
+  it('completes the handshake and lists tools with no token configured', async () => {
+    const client = await connect(NO_TOKEN);
+    try {
+      expect(client.getServerVersion()).toMatchObject({
+        name: 'directus-mcp-server-enhanced',
+      });
+      const { tools } = await client.listTools();
+      expect(tools).toHaveLength(34);
+    } finally {
+      await client.close();
+    }
+  }, 30_000);
+
+  it('completes the handshake when Directus is unreachable', async () => {
+    const client = await connect(UNREACHABLE);
+    try {
+      const { tools } = await client.listTools();
+      expect(tools).toHaveLength(34);
+    } finally {
+      await client.close();
+    }
+  }, 30_000);
+
+  it('warns about the missing token and keeps running instead of exiting', async () => {
+    // stdin must be a pipe, not /dev/null: the stdio transport closes on EOF,
+    // which would end the process for reasons unrelated to the token.
     const child = spawn(process.execPath, ['dist/index.js'], {
       cwd: REPO,
-      env: { ...inherited, LOG_LEVEL: 'ERROR', ...env },
-      stdio: ['ignore', 'ignore', 'pipe'],
+      env: { ...inheritedEnv(), LOG_LEVEL: 'WARN', ...NO_TOKEN },
+      stdio: ['pipe', 'ignore', 'pipe'],
     });
     let stderr = '';
     child.stderr.on('data', (d) => (stderr += d.toString()));
-    const timer = setTimeout(() => {
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+      expect(child.exitCode).toBeNull();
+      expect(stderr).toContain('DIRECTUS_TOKEN');
+    } finally {
       child.kill('SIGKILL');
-      reject(new Error(`Server did not exit within ${timeoutMs}ms. stderr:\n${stderr}`));
-    }, timeoutMs);
-    child.on('exit', (code) => {
-      clearTimeout(timer);
-      resolve({ code, stderr });
-    });
-    child.on('error', (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-  });
-}
-
-describe('startup failures', () => {
-  it('exits 1 when DIRECTUS_TOKEN is missing', async () => {
-    // Empty string masks any token from the repo .env (dotenv never overrides).
-    const { code, stderr } = await runServer({ DIRECTUS_TOKEN: '', DIRECTUS_URL: 'http://127.0.0.1:9' });
-    expect(code).toBe(1);
-    expect(stderr).toContain('DIRECTUS_TOKEN');
-  }, 25_000);
-
-  it('exits 1 when Directus is unreachable', async () => {
-    const { code, stderr } = await runServer({
-      DIRECTUS_TOKEN: 'a-token',
-      DIRECTUS_URL: 'http://127.0.0.1:9', // closed port
-      DIRECTUS_RETRIES: '1',
-      DIRECTUS_RETRY_DELAY: '1',
-      DIRECTUS_MAX_RETRY_DELAY: '2',
-    });
-    expect(code).toBe(1);
-    expect(stderr).toContain('Failed to connect to Directus server');
-  }, 25_000);
+    }
+  }, 15_000);
 });
