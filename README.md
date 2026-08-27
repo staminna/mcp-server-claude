@@ -5,6 +5,9 @@ MCP server for Directus 12 — items, collections, files, flows, users, and sche
 [![npm version](https://badge.fury.io/js/%40staminna%2Fdirectus-mcp-server.svg)](https://www.npmjs.com/package/@staminna/directus-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/staminna/mcp-server-claude/actions/workflows/ci.yml/badge.svg)](https://github.com/staminna/mcp-server-claude/actions/workflows/ci.yml)
+[![mcp-server-claude MCP server](https://glama.ai/mcp/servers/staminna/mcp-server-claude/badges/score.svg)](https://glama.ai/mcp/servers/staminna/mcp-server-claude)
+
+[![mcp-server-claude MCP server](https://glama.ai/mcp/servers/staminna/mcp-server-claude/badges/card.svg)](https://glama.ai/mcp/servers/staminna/mcp-server-claude)
 
 ### Test Coverage
 
