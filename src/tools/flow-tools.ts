@@ -4,6 +4,12 @@ import { DirectusClient } from '../client/directus-client.js';
 import { logger } from '../utils/logger.js';
 import { QueryOptions } from '../types/directus.js';
 
+/** Directus 12.4 flow folders: null is root, and `folder.*` expands to an object. */
+function folderLabel(folder: any): string {
+  if (!folder) return 'Root';
+  return typeof folder === 'object' ? (folder.name || folder.id) : String(folder);
+}
+
 export class FlowTools {
   constructor(private client: DirectusClient) {}
 
@@ -12,6 +18,7 @@ export class FlowTools {
     filter?: Record<string, any>;
     fields?: string[];
     status?: 'active' | 'inactive';
+    folder?: string;
   } = {}): Promise<any> {
     const operationId = `get_flows_${Date.now()}`;
     logger.startTimer(operationId);
@@ -30,6 +37,16 @@ export class FlowTools {
         options.filter!.status = { _eq: args.status };
       }
 
+      // Opt-in on purpose: `folder` only exists from Directus 12.4, and asking a
+      // 12.3 instance for an unknown field fails the whole request. An empty
+      // string means "root-level flows only".
+      if (args.folder !== undefined) {
+        options.filter!.folder = args.folder ? { _eq: args.folder } : { _null: true };
+        if (!options.fields!.includes('folder')) {
+          options.fields = [...options.fields!, 'folder'];
+        }
+      }
+
       const response = await this.client.getFlows(options);
       const flows = response.data || [];
       const meta = response.meta;
@@ -43,9 +60,10 @@ export class FlowTools {
       return {
         content: [{
           type: 'text',
-          text: `Flows (${flows.length}${meta?.total_count ? ` of ${meta.total_count}` : ''}):\n\n${flows.map((flow: any) => 
-            `• **${flow.name}** (${flow.id})\n  Status: ${flow.status} | Trigger: ${flow.trigger || 'Manual'}\n  Description: ${flow.description || 'No description'}\n  Created: ${flow.date_created || 'Unknown'}`
-          ).join('\n\n')}`
+          text: `Flows (${flows.length}${meta?.total_count ? ` of ${meta.total_count}` : ''}):\n\n${flows.map((flow: any) => {
+            const folderLine = flow.folder === undefined ? '' : `\n  Folder: ${folderLabel(flow.folder)}`;
+            return `• **${flow.name}** (${flow.id})\n  Status: ${flow.status} | Trigger: ${flow.trigger || 'Manual'}${folderLine}\n  Description: ${flow.description || 'No description'}\n  Created: ${flow.date_created || 'Unknown'}`;
+          }).join('\n\n')}`
         }]
       };
     } catch (error) {
@@ -139,6 +157,7 @@ export class FlowTools {
     status?: 'active' | 'inactive';
     trigger?: string;
     description?: string;
+    folder?: string | null;
     options?: Record<string, any>;
     operations?: Array<{
       name?: string;
@@ -161,7 +180,9 @@ export class FlowTools {
         trigger: args.trigger,
         description: args.description,
         options: args.options,
-        operations: args.operations
+        operations: args.operations,
+        // Only sent when asked for: the column does not exist before Directus 12.4.
+        ...(args.folder !== undefined ? { folder: args.folder } : {})
       };
 
       const response = await this.client.post('/flows', flowData);
@@ -176,7 +197,7 @@ export class FlowTools {
       return {
         content: [{
           type: 'text',
-          text: `Flow created successfully:\n\n**Name:** ${flow?.name}\n**ID:** ${flow?.id}\n**Status:** ${flow?.status}\n**Trigger:** ${flow?.trigger || 'Manual'}`
+          text: `Flow created successfully:\n\n**Name:** ${flow?.name}\n**ID:** ${flow?.id}\n**Status:** ${flow?.status}\n**Trigger:** ${flow?.trigger || 'Manual'}${flow?.folder ? `\n**Folder:** ${folderLabel(flow.folder)}` : ''}`
         }]
       };
     } catch (error) {

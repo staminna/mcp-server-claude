@@ -195,6 +195,59 @@ describe('DiagnosticTools', () => {
       );
       expect(stub.getCollections).not.toHaveBeenCalled();
     });
+    it('explains COLLECTION_INACTIVE (Directus 12.4) instead of blaming permissions', async () => {
+      const stub = makeClientStub();
+      const inactive = { collection: 'legacy', schema: { name: 'legacy' }, meta: { status: 'inactive' } };
+      stub.getCollections.mockResolvedValue(envelope([...COLLECTIONS, inactive]));
+      stub.getCollection.mockResolvedValue(envelope(inactive));
+      // DirectusClient rejects with a plain DirectusError object, not an Error.
+      stub.getItems.mockRejectedValue({
+        message: 'Collection "legacy" is inactive.',
+        extensions: { code: 'COLLECTION_INACTIVE', collection: 'legacy' },
+      });
+
+      const tools = new DiagnosticTools(stub);
+      const text = textOf(await tools.diagnoseCollectionAccess({ collection: 'legacy' }));
+
+      expect(text).toContain('Collection "legacy" is inactive.');
+      expect(text).toContain('"code": "COLLECTION_INACTIVE"');
+      expect(text).toContain('Collection is inactive (meta.status = "inactive")');
+      expect(text).toContain('Reactivate it under Settings → Data Model');
+    });
+
+    it('recognises an inactive collection from the listing when the items probe only says FORBIDDEN', async () => {
+      const stub = makeClientStub();
+      const inactive = { collection: 'legacy', schema: { name: 'legacy' }, meta: { status: 'inactive' } };
+      stub.getCollections.mockResolvedValue(envelope([inactive]));
+      stub.getCollection.mockResolvedValue(envelope(inactive));
+      // Directus answers a generic FORBIDDEN to tokens without permission on
+      // the collection so they cannot probe for its existence.
+      stub.getItems.mockRejectedValue({
+        message: "You don't have permission to access this.",
+        extensions: { code: 'FORBIDDEN' },
+      });
+
+      const tools = new DiagnosticTools(stub);
+      const text = textOf(await tools.diagnoseCollectionAccess({ collection: 'legacy' }));
+
+      expect(text).toContain('Collection is inactive (meta.status = "inactive")');
+    });
+
+    it('does not mention inactivity for an ordinary permission failure', async () => {
+      const stub = makeClientStub();
+      stub.getCollections.mockResolvedValue(envelope(COLLECTIONS));
+      stub.getCollection.mockResolvedValue(envelope(COLLECTIONS[0]));
+      stub.getItems.mockRejectedValue({
+        message: "You don't have permission to access this.",
+        extensions: { code: 'FORBIDDEN' },
+      });
+
+      const tools = new DiagnosticTools(stub);
+      const text = textOf(await tools.diagnoseCollectionAccess({ collection: 'articles' }));
+
+      expect(text).toContain('Verify read permissions for the collection');
+      expect(text).not.toContain('Collection is inactive');
+    });
   });
 
   describe('refreshCollectionCache', () => {

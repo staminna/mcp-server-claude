@@ -1161,3 +1161,28 @@ describe('CollectionTools.listCollections marks folders', () => {
     }
   });
 });
+
+describe('CollectionTools.listCollections marks inactive collections', () => {
+  it('flags meta.status inactive (Directus 12.4) and leaves active ones alone', async () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true) as any;
+    try {
+      const stub = makeClientStub();
+      // Since 12.4 item CRUD on an inactive collection answers 403
+      // COLLECTION_INACTIVE, which reads as a permission problem unless the
+      // listing says otherwise.
+      stub.getCollections.mockResolvedValue(envelope([
+        { collection: 'legacy', schema: { name: 'legacy' }, meta: { status: 'inactive', note: 'Old data' } },
+        { collection: 'articles', schema: { name: 'articles' }, meta: { status: 'active', note: 'Posts' } },
+      ]));
+      const tools = new CollectionTools(stub);
+
+      const out = text(await tools.listCollections({}));
+
+      expect(out).toContain('**legacy** _(inactive — item access blocked)_ - Old data');
+      expect(out).toContain('**articles** - Posts');
+      expect(out).not.toContain('**articles** _(inactive');
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+});

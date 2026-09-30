@@ -39,7 +39,15 @@ export class CollectionTools {
             // one answers 403 and reads as a permission problem. Say so here, or
             // every caller has to discover it the confusing way.
             const isFolder = c.schema === null || c.schema === undefined;
-            return `• **${c.collection}**${isFolder ? ' _(folder — no items)_' : ''} - ${c.meta?.note || 'No description'}`;
+            // Since Directus 12.4 a collection whose meta.status is 'inactive'
+            // refuses item reads and writes with COLLECTION_INACTIVE (403) while
+            // its schema stays readable and editable. Flag it for the same reason
+            // folders are flagged: the 403 otherwise looks like a permission bug.
+            const isInactive = c.meta?.status === 'inactive';
+            const marker = isFolder
+              ? ' _(folder — no items)_'
+              : isInactive ? ' _(inactive — item access blocked)_' : '';
+            return `• **${c.collection}**${marker} - ${c.meta?.note || 'No description'}`;
           }).join('\n')}`
         }]
       };

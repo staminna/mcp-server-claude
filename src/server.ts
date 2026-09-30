@@ -84,7 +84,9 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["collections", "list", "tables", "browse", "discover"],
-    description: 'List all collections in the Directus instance',
+    description:
+      'List all collections in the Directus instance. Folders (no table behind them) and inactive ' +
+      'collections (Directus 12.4 refuses to read or write their contents) are marked.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -248,7 +250,8 @@ export const TOOL_DEFINITIONS = [
     keywords: ["items", "rows", "delete", "remove", "destroy", "bulk"],
     description:
       'Delete items from a collection, either by explicit IDs or by a query. ' +
-      'Providing neither deletes nothing.',
+      'Providing neither deletes nothing. Since Directus 12.4 a query resolves its targets under the ' +
+      "token's read permissions: read access to the primary key is required and only readable items are deleted.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -593,6 +596,10 @@ export const TOOL_DEFINITIONS = [
         fields: { type: 'array', items: { type: 'string' }, description: 'Fields to return' },
         search: { type: 'string', description: 'Search query' },
         status: { type: 'string', enum: ['active', 'inactive'], description: 'Filter by flow status' },
+        folder: {
+          type: 'string',
+          description: 'Directus 12.4+: only flows in this folder (folder ID); pass "" for root-level flows'
+        },
       },
     },
   },
@@ -631,6 +638,7 @@ export const TOOL_DEFINITIONS = [
         status: { type: 'string', enum: ['active', 'inactive'], description: 'Flow status (default: active)' },
         trigger: { type: 'string', description: 'Trigger type (e.g., manual, schedule, event, webhook)' },
         description: { type: 'string', description: 'Flow description' },
+        folder: { type: 'string', description: 'Directus 12.4+: flow folder ID to file the flow under (omit for root)' },
         options: { type: 'object', description: 'Trigger-specific options' },
         operations: {
           type: 'array',

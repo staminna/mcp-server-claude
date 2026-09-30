@@ -6,13 +6,13 @@
     "url": "https://github.com/staminna/mcp-server-claude",
     "source": "github"
   },
-  "version": "12.3.3",
+  "version": "12.4.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@staminna/directus-mcp-server",
-      "version": "12.3.3",
+      "version": "12.4.0",
       "transport": {
         "type": "stdio"
       },

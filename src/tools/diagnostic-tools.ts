@@ -129,7 +129,8 @@ export class DiagnosticTools {
         diagnostics.tests.items_access = {
           passed: false,
           message: `Failed to access items in collection "${args.collection}": ${(error as Error).message}`,
-          error: (error as Error).message
+          error: (error as Error).message,
+          code: (error as any)?.extensions?.code
         };
       }
 
@@ -473,6 +474,16 @@ export class DiagnosticTools {
     if (!tests.items_access?.passed) {
       recommendations.push('• Collection exists but item access is restricted');
       recommendations.push('• Verify read permissions for the collection');
+    }
+
+    // Directus 12.4+: item CRUD on an inactive collection answers 403
+    // COLLECTION_INACTIVE (a plain FORBIDDEN for tokens without permission on
+    // it). That is not a permissions problem, so say so before anyone goes
+    // hunting through policies.
+    const listedInactive = tests.collection_in_list?.data?.meta?.status === 'inactive';
+    if (listedInactive || tests.items_access?.code === 'COLLECTION_INACTIVE') {
+      recommendations.push('• Collection is inactive (meta.status = "inactive"): since Directus 12.4 item reads and writes on it fail with COLLECTION_INACTIVE while schema tools keep working');
+      recommendations.push('• Reactivate it under Settings → Data Model (meta.status = "active") before reading or writing items');
     }
     
     if (!tests.user_permissions?.passed) {

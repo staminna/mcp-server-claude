@@ -1,4 +1,4 @@
-# Directus 12.0 → 12.3 — Impact on this MCP Server
+# Directus 12.0 → 12.4 — Impact on this MCP Server
 
 Sources:
 - https://directus.com/docs/releases/breaking-changes/version-12
@@ -144,6 +144,113 @@ This server builds asset URLs but does not request transformations.
 ### `exists()` throws on lookup failure — no impact
 
 Internal to the storage drivers.
+
+---
+
+## 12.3.1
+
+### SDK realtime fixes (`unsubscribe()` accumulation, heartbeat listener leak) — no impact
+
+Both live in the SDK's realtime client and the server-side WebSocket layer,
+neither of which this server wires up (`websocket: false`). Ships as
+`@directus/sdk@25.0.1`.
+
+### Public registration verifies the submitted email, not the stored one — no impact
+
+This server never registers users.
+
+---
+
+## 12.4.0
+
+### Item CRUD on inactive collections is blocked (#27792) — **surfaced**
+
+A collection whose `meta.status` is `inactive` now refuses every item read and
+write with `403 COLLECTION_INACTIVE` — or a plain `FORBIDDEN` for a token with
+no permission on it, so it cannot probe for existence. Schema endpoints keep
+working, and reading, filtering or sorting *through* an inactive relation is
+rejected too. Before 12.4 the same collection simply answered its items.
+
+The failure reads as a permissions bug, so:
+
+- `list_collections` marks such collections `_(inactive — item access blocked)_`,
+  the way it already marks folders.
+- `diagnose_collection_access` records the error code of its items probe and,
+  when the collection is listed as inactive or the probe answers
+  `COLLECTION_INACTIVE`, says so instead of pointing at read permissions.
+
+### Update/delete by query resolve their targets under read permissions (#28143) — documented
+
+`delete_items` with `query` — and any Directus-side update-by-query — now:
+
+- needs read access to the collection's primary key field,
+- only reaches the items the token can *read*, regardless of its delete or
+  update rights,
+- needs read access on the child collection for nested o2m saves.
+
+A least-privilege token with delete-but-not-read on a collection could
+`delete_items` by query before; the query now resolves to no readable keys and
+deletes nothing. The tool description says so. No code change: this is the
+correct behaviour, and a token allowed to delete what it cannot read was always
+a configuration smell.
+
+### Flows moved into their own module, with folders (#28206) — **adopted**
+
+`directus_flows` gained a `folder` column and `directus_folders` gained a
+`type` (`files` | `flows`), so one folder tree serves the file library and a
+separate one serves Flows. The Studio also gained flow import/export and
+duplication, a hidden location for manual-trigger buttons, and a From Name on
+the email operation. None of those have an API of their own — duplication is a
+create — so the API-visible change is the `folder` field.
+
+- `get_flows` accepts `folder` (a folder ID, or `""` for root-level flows only)
+  and prints the folder of every flow it is told about.
+- `create_flow` accepts `folder`.
+
+Both are opt-in and send nothing extra when omitted, so a pre-12.4 instance —
+where the column does not exist and an unknown field fails the request — is
+unaffected. For the same reason `folder` is not in `get_flows`'s default field
+list.
+
+The folder helpers in `FileTools` (`getFolders`, `createFolder`) are not
+registered as MCP tools. If they are ever exposed, filter on `type = files`, or
+Flow folders will appear in the file library listing.
+
+### `@directus/sdk` 25 → 26 (#27956, #27970) — **absorbed**
+
+A type-only major: `DirectusRelation.meta` and `.schema`, `DirectusRole.parent`,
+`DirectusVersion.hash` and several `directus_access` fields are now nullable;
+`DirectusPolicy.ip_access` and `one_allowed_collections` are `string[]`. This
+server imports SDK *commands* plus the schema output types and keeps its own
+`DirectusRelation`, so nothing needed changing — `tsc` is clean on 26.0.0. The
+new nullability matches what the API actually returns.
+
+### MapLibre 6, Unhead 3, Mailtrap transport — no impact
+
+Studio and email-side only.
+
+---
+
+## 12.4.1
+
+### Non-admin reads of `/folders` fixed (#28286) — note
+
+Only relevant if the `FileTools` folder helpers are ever exposed: a non-admin
+token could not list folders on 12.4.0.
+
+---
+
+## What changed in this package for 12.4.0
+
+- **`@directus/sdk` `^25.0.0` → `^26.0.0`.** Type-only upgrade, no code change.
+- **`list_collections`** marks inactive collections.
+- **`diagnose_collection_access`** recognises `COLLECTION_INACTIVE`, from the
+  error code or from the collection's `meta.status`.
+- **`get_flows` / `create_flow`** understand flow folders, opt-in.
+- **`delete_items`** documents the read-permission requirement for deleting by
+  query.
+- **vitest and @vitest/coverage-v8 `4.1.8` → `4.1.11`** — GHSA-82fw-gwwq-j7x9,
+  a path traversal in `@vitest/mocker`. Dev-only, never shipped.
 
 ---
 

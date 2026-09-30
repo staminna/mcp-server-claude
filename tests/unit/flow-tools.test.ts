@@ -45,6 +45,48 @@ describe('FlowTools', () => {
       expect(text).toContain('Created: Unknown');
     });
 
+    it('filters by folder (Directus 12.4) and shows where each flow lives', async () => {
+      stub.getFlows.mockResolvedValue(
+        envelope([
+          { ...FLOWS[0], folder: 'folder-1' },
+          // `folder.*` in fields expands the relation to an object
+          { ...FLOWS[1], folder: { id: 'folder-2', name: 'Ops' } },
+        ])
+      );
+
+      const result = await tools.getFlows({ folder: 'folder-1' });
+
+      const options = stub.getFlows.mock.calls[0][0];
+      expect(options.filter).toEqual({ folder: { _eq: 'folder-1' } });
+      expect(options.fields).toContain('folder');
+      const text = result.content[0].text;
+      expect(text).toContain('Trigger: event\n  Folder: folder-1');
+      expect(text).toContain('Folder: Ops');
+    });
+
+    it('maps an empty folder argument to root-level flows without mutating caller fields', async () => {
+      const fields = ['id', 'name'];
+      stub.getFlows.mockResolvedValue(
+        envelope([{ id: 'f', name: 'Root flow', status: 'active', folder: null }])
+      );
+
+      const result = await tools.getFlows({ folder: '', fields });
+
+      const options = stub.getFlows.mock.calls[0][0];
+      expect(options.filter).toEqual({ folder: { _null: true } });
+      expect(options.fields).toEqual(['id', 'name', 'folder']);
+      expect(fields).toEqual(['id', 'name']);
+      expect(result.content[0].text).toContain('Folder: Root');
+    });
+
+    it('does not repeat folder when the caller already asked for it', async () => {
+      stub.getFlows.mockResolvedValue(envelope([]));
+
+      await tools.getFlows({ folder: 'folder-1', fields: ['id', 'folder'] });
+
+      expect(stub.getFlows.mock.calls[0][0].fields).toEqual(['id', 'folder']);
+    });
+
     it('applies the status filter branch and custom limit/fields/filter', async () => {
       stub.getFlows.mockResolvedValue(envelope([FLOWS[0]]));
 
@@ -206,6 +248,17 @@ describe('FlowTools', () => {
       });
       expect(result.content[0].text).toContain('**Status:** inactive');
       expect(result.content[0].text).toContain('**Trigger:** webhook');
+    });
+
+    it('files the flow under a folder only when one is given (Directus 12.4)', async () => {
+      stub.post.mockResolvedValue(
+        envelope({ id: 'flow-f', name: 'Filed', status: 'active', trigger: 'manual', folder: 'folder-1' })
+      );
+
+      const result = await tools.createFlow({ name: 'Filed', trigger: 'manual', folder: 'folder-1' });
+
+      expect(stub.post.mock.calls[0][1]).toMatchObject({ name: 'Filed', folder: 'folder-1' });
+      expect(result.content[0].text).toContain('**Folder:** folder-1');
     });
 
     it('returns error text when the client rejects', async () => {

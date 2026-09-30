@@ -13,7 +13,7 @@ MCP server for Directus 12 — items, collections, files, flows, users, and sche
 
 | Statements | Branches | Functions | Lines |
 |------------|----------|-----------|-------|
-| ![Statements](https://img.shields.io/badge/statements-98.65%25-brightgreen.svg?style=flat) | ![Branches](https://img.shields.io/badge/branches-98.04%25-brightgreen.svg?style=flat) | ![Functions](https://img.shields.io/badge/functions-97.3%25-brightgreen.svg?style=flat) | ![Lines](https://img.shields.io/badge/lines-98.64%25-brightgreen.svg?style=flat) |
+| ![Statements](https://img.shields.io/badge/statements-98.66%25-brightgreen.svg?style=flat) | ![Branches](https://img.shields.io/badge/branches-98%25-brightgreen.svg?style=flat) | ![Functions](https://img.shields.io/badge/functions-97.31%25-brightgreen.svg?style=flat) | ![Lines](https://img.shields.io/badge/lines-98.65%25-brightgreen.svg?style=flat) |
 
 Coverage badges are generated from `coverage/coverage-summary.json` by `npm run badges` (no external service required). Run `npm run test:coverage` first.
 
@@ -280,7 +280,7 @@ For Claude.ai web interface with MCP support:
 ### Collection Management
 | Tool | Description |
 |------|-------------|
-| `list_collections` | List all collections in Directus |
+| `list_collections` | List all collections; folders and inactive collections (Directus 12.4) are marked |
 | `get_collection_schema` | Get schema for a specific collection |
 | `get_collection_items` | Get items from a collection with filtering |
 | `create_collection` | Create a new collection |
@@ -307,9 +307,9 @@ For Claude.ai web interface with MCP support:
 ### Flow Management
 | Tool | Description |
 |------|-------------|
-| `get_flows` | Get all flows with optional filtering |
+| `get_flows` | Get all flows, optionally by `folder` (Directus 12.4) |
 | `get_flow` | Get a specific flow by ID |
-| `create_flow` | Create a new automation flow |
+| `create_flow` | Create a new automation flow, optionally inside a `folder` |
 | `update_flow` | Update an existing flow |
 | `delete_flow` | Delete a flow |
 | `trigger_flow` | Manually trigger a flow |
@@ -364,6 +364,11 @@ To delete every item in a collection, ask for it explicitly:
 ```json
 { "collection": "articles", "query": { "limit": -1 }, "confirm": true }
 ```
+
+Since Directus 12.4.0 a `query` resolves its targets under the token's **read**
+permissions: read access to the primary key is required, and only items the
+token can read are deleted. A token that can delete but not read deletes
+nothing.
 
 ---
 
