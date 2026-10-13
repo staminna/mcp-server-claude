@@ -95,6 +95,7 @@ describe('UserTools', () => {
 
       const result = await tools.getUsers();
       expect(text(result)).toContain('Error getting users: users blew up');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -124,6 +125,7 @@ describe('UserTools', () => {
 
       const result = await tools.getUser({ id: 'missing-id' });
       expect(text(result)).toContain('Error getting user missing-id: not found');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -202,6 +204,7 @@ describe('UserTools', () => {
 
       const result = await tools.createUser({ email: 'dup@example.com', password: 'pw' });
       expect(text(result)).toContain('Error creating user: email taken');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -226,6 +229,7 @@ describe('UserTools', () => {
 
       const result = await tools.updateUser({ id: 'aaaa-1111', data: {} });
       expect(text(result)).toContain('Error updating user aaaa-1111: forbidden');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -262,6 +266,7 @@ describe('UserTools', () => {
 
       const result = await tools.deleteUser({ id: 'aaaa-1111', confirm: true });
       expect(text(result)).toContain('Error deleting user aaaa-1111: cannot delete admin');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -324,6 +329,7 @@ describe('UserTools', () => {
 
       const result = await tools.getRoles();
       expect(text(result)).toContain('Error getting roles: roles down');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -345,6 +351,7 @@ describe('UserTools', () => {
 
       const result = await tools.getRole({ id: 'role-zzz' });
       expect(text(result)).toContain('Error getting role role-zzz: no such role');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -398,6 +405,7 @@ describe('UserTools', () => {
 
       const result = await tools.createRole({ name: 'Writers' });
       expect(text(result)).toContain('Error creating role: duplicate role');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -456,6 +464,7 @@ describe('UserTools', () => {
 
       const result = await tools.getPermissions({ role: 'role-x', collection: 'articles' });
       expect(text(result)).toContain('Error getting permissions: perm denied');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -522,6 +531,7 @@ describe('UserTools', () => {
         action: 'read',
       });
       expect(text(result)).toContain('Error creating permission: invalid action');
+      expect(result.isError).toBe(true);
     });
   });
 });

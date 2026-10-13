@@ -122,11 +122,12 @@ export class FileTools {
         return this.text(
           '❌ Directus rejected the import as too large (HTTP 413).\n\n' +
           'Raise `IMPORT_MAX_FILE_SIZE` on the Directus instance (it defaults to `50mb`), or split ' +
-          'the file into smaller imports.'
+          'the file into smaller imports.',
+          true
         );
       }
 
-      return this.text(`Error importing data: ${(error as Error).message}`);
+      return this.text(`Error importing data: ${(error as Error).message}`, true);
     }
   }
 
@@ -154,8 +155,8 @@ export class FileTools {
       : `${header}\n\nNo collections were affected.`;
   }
 
-  private text(message: string): any {
-    return { content: [{ type: 'text', text: message }] };
+  private text(message: string, isError = false): any {
+    return { content: [{ type: 'text', text: message }], ...(isError && { isError: true }) };
   }
 
   async uploadFile(args: {
@@ -219,6 +220,7 @@ export class FileTools {
       logger.toolError('upload_file', error as Error);
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error uploading file: ${(error as Error).message}`
@@ -279,6 +281,7 @@ export class FileTools {
       logger.toolError('get_files', error as Error);
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting files: ${(error as Error).message}`
@@ -315,6 +318,7 @@ export class FileTools {
       logger.toolError('get_file', error as Error, { fileId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting file ${args.id}: ${(error as Error).message}`
@@ -355,6 +359,7 @@ export class FileTools {
       logger.toolError('delete_file', error as Error, { fileId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error deleting file ${args.id}: ${(error as Error).message}`
@@ -398,6 +403,7 @@ export class FileTools {
       logger.toolError('create_folder', error as Error, { name: args.name });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error creating folder: ${(error as Error).message}`
@@ -450,6 +456,7 @@ export class FileTools {
       logger.toolError('get_folders', error as Error, { parent: args.parent });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting folders: ${(error as Error).message}`
@@ -485,6 +492,7 @@ export class FileTools {
       logger.toolError('update_file', error as Error, { fileId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error updating file ${args.id}: ${(error as Error).message}`
@@ -546,6 +554,7 @@ export class FileTools {
       logger.toolError('get_file_url', error as Error, { fileId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting file URL for ${args.id}: ${(error as Error).message}`

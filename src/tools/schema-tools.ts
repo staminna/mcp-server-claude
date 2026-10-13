@@ -132,6 +132,7 @@ export class SchemaTools {
       logger.toolError('analyze_collection_schema', error as Error, { collection: args.collection });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error analyzing schema for collection "${args.collection}": ${(error as Error).message}`
@@ -192,6 +193,7 @@ export class SchemaTools {
       logger.toolError('analyze_relationships', error as Error);
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error analyzing relationships: ${(error as Error).message}`
@@ -250,6 +252,7 @@ export class SchemaTools {
       logger.toolError('create_relationship', error as Error, { type: args.type });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error creating ${args.type} relationship: ${(error as Error).message}`
@@ -306,6 +309,7 @@ export class SchemaTools {
       logger.toolError('validate_collection_schema', error as Error, { collection: args.collection });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error validating schema for collection "${args.collection}": ${(error as Error).message}`
@@ -372,6 +376,7 @@ export class SchemaTools {
       logger.toolError('get_schema_snapshot', error as Error, args);
 
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error reading schema snapshot: ${(error as Error).message}`
@@ -447,6 +452,7 @@ export class SchemaTools {
       logger.toolError('diff_schema', error as Error, {});
 
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error diffing schema: ${(error as Error).message}`
@@ -515,6 +521,7 @@ export class SchemaTools {
       logger.toolError('apply_schema', error as Error, {});
 
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error applying schema: ${(error as Error).message}`

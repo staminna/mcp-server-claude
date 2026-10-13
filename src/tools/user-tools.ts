@@ -52,6 +52,7 @@ export class UserTools {
       logger.toolError('get_users', error as Error);
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting users: ${(error as Error).message}`
@@ -88,6 +89,7 @@ export class UserTools {
       logger.toolError('get_user', error as Error, { userId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting user ${args.id}: ${(error as Error).message}`
@@ -145,6 +147,7 @@ export class UserTools {
       logger.toolError('create_user', error as Error, { email: args.email });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error creating user: ${(error as Error).message}`
@@ -180,6 +183,7 @@ export class UserTools {
       logger.toolError('update_user', error as Error, { userId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error updating user ${args.id}: ${(error as Error).message}`
@@ -220,6 +224,7 @@ export class UserTools {
       logger.toolError('delete_user', error as Error, { userId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error deleting user ${args.id}: ${(error as Error).message}`
@@ -267,6 +272,7 @@ export class UserTools {
       logger.toolError('get_roles', error as Error);
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting roles: ${(error as Error).message}`
@@ -299,6 +305,7 @@ export class UserTools {
       logger.toolError('get_role', error as Error, { roleId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting role ${args.id}: ${(error as Error).message}`
@@ -352,6 +359,7 @@ export class UserTools {
       logger.toolError('create_role', error as Error, { name: args.name });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error creating role: ${(error as Error).message}`
@@ -409,6 +417,7 @@ export class UserTools {
       });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting permissions: ${(error as Error).message}`
@@ -465,6 +474,7 @@ export class UserTools {
       });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error creating permission: ${(error as Error).message}`

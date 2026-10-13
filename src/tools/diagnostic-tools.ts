@@ -193,6 +193,7 @@ export class DiagnosticTools {
       logger.toolError('diagnose_collection_access', error as Error, { collection: args.collection });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error diagnosing collection access for "${args.collection}": ${(error as Error).message}`
@@ -294,6 +295,7 @@ export class DiagnosticTools {
       logger.toolError('refresh_collection_cache', error as Error);
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error refreshing collection cache: ${(error as Error).message}`
@@ -421,6 +423,7 @@ export class DiagnosticTools {
       logger.toolError('validate_collection_creation', error as Error, { collection: args.collection });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error validating collection creation for "${args.collection}": ${(error as Error).message}`

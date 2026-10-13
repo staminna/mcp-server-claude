@@ -56,6 +56,7 @@ export class CollectionTools {
       logger.toolError('list_collections', error as Error);
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error listing collections: ${(error as Error).message}`
@@ -110,6 +111,7 @@ export class CollectionTools {
       logger.toolError('get_collection_schema', error as Error, { collection: args.collection });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting schema for collection "${args.collection}": ${(error as Error).message}`
@@ -165,6 +167,7 @@ export class CollectionTools {
       logger.toolError('create_collection', error as Error, { collection: args.collection });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error creating collection "${args.collection}": ${(error as Error).message}`
@@ -205,6 +208,7 @@ export class CollectionTools {
       logger.toolError('delete_collection', error as Error, { collection: args.collection });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error deleting collection "${args.collection}": ${(error as Error).message}`
@@ -267,6 +271,7 @@ export class CollectionTools {
       logger.toolError('get_collection_items', error as Error, { collection: args.collection });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting items from collection "${args.collection}": ${(error as Error).message}`
@@ -305,6 +310,7 @@ export class CollectionTools {
       logger.toolError('create_item', error as Error, { collection: args.collection });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error creating item in collection "${args.collection}": ${(error as Error).message}`
@@ -373,6 +379,7 @@ export class CollectionTools {
       });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error updating item ${args.id} in collection "${args.collection}": ${(error as Error).message}`
@@ -479,6 +486,7 @@ export class CollectionTools {
       });
 
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error deleting items from collection "${args.collection}": ${(error as Error).message}`
@@ -551,6 +559,7 @@ export class CollectionTools {
       });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error creating field "${args.field}" in collection "${args.collection}": ${(error as Error).message}`
@@ -622,6 +631,7 @@ export class CollectionTools {
       });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error updating field "${args.field}" in collection "${args.collection}": ${(error as Error).message}`
@@ -684,6 +694,7 @@ export class CollectionTools {
       });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error deleting field "${args.field}" from collection "${args.collection}": ${(error as Error).message}`
@@ -831,6 +842,7 @@ export class CollectionTools {
       logger.toolError('bulk_operations', error as Error, { collection: args.collection });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error executing bulk operations on collection "${args.collection}": ${(error as Error).message}`

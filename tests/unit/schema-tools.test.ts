@@ -254,6 +254,7 @@ describe('SchemaTools', () => {
       const result = await tools.analyzeCollectionSchema({ collection: 'articles' });
 
       expect(text(result)).toContain('Error analyzing schema for collection "articles": boom');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -355,6 +356,7 @@ describe('SchemaTools', () => {
       const result = await tools.analyzeRelationships({});
 
       expect(text(result)).toContain('Error analyzing relationships: nope');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -657,6 +659,7 @@ describe('SchemaTools', () => {
       } as any);
 
       expect(text(result)).toContain('Error creating x2x relationship: Unsupported relationship type: x2x');
+      expect(result.isError).toBe(true);
       expect(stub.createField).not.toHaveBeenCalled();
       expect(stub.createRelation).not.toHaveBeenCalled();
     });
@@ -673,6 +676,7 @@ describe('SchemaTools', () => {
       });
 
       expect(text(result)).toContain('Error creating o2m relationship: field exists');
+      expect(result.isError).toBe(true);
       expect(stub.createRelation).not.toHaveBeenCalled();
     });
   });
@@ -747,6 +751,7 @@ describe('SchemaTools', () => {
       const result = await tools.validateCollectionSchema({ collection: 'articles' });
 
       expect(text(result)).toContain('Error validating schema for collection "articles": db down');
+      expect(result.isError).toBe(true);
     });
   });
 });

@@ -84,6 +84,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.listCollections();
       expect(text(result)).toContain('Error listing collections: list boom');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -138,6 +139,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.getCollectionSchema({ collection: 'articles' });
       expect(text(result)).toContain('Error getting schema for collection "articles": schema boom');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -181,6 +183,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.createCollection({ collection: 'events' });
       expect(text(result)).toContain('Error creating collection "events": create boom');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -215,6 +218,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.deleteCollection({ collection: 'articles', confirm: true });
       expect(text(result)).toContain('Error deleting collection "articles": delete boom');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -296,6 +300,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.getCollectionItems({ collection: 'articles' });
       expect(text(result)).toContain('Error getting items from collection "articles": items boom');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -319,6 +324,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.createItem({ collection: 'articles', data: {} });
       expect(text(result)).toContain('Error creating item in collection "articles": item boom');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -381,6 +387,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.updateItem({ collection: 'articles', id: 7, data: { title: 'x' } });
       expect(text(result)).toContain('Error updating item 7 in collection "articles": update boom');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -592,6 +599,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.deleteItems({ collection: 'articles', ids: [1], confirm: true });
       expect(text(result)).toContain('Error deleting items from collection "articles": del boom');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -689,6 +697,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.createField({ collection: 'articles', field: 'f', type: 'string' as any });
       expect(text(result)).toContain('Error creating field "f" in collection "articles": field boom');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -797,6 +806,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.updateField({ collection: 'articles', field: 'title', note: 'x' });
       expect(text(result)).toContain('Error updating field "title" in collection "articles": uf boom');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -870,6 +880,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.deleteField({ collection: 'articles', field: 'author', confirm: true });
       expect(text(result)).toContain('Error deleting field "author" from collection "articles": df boom');
+      expect(result.isError).toBe(true);
     });
 
     it('returns an error message when the relations check rejects', async () => {
@@ -879,6 +890,7 @@ describe('CollectionTools', () => {
 
       const result = await tools.deleteField({ collection: 'articles', field: 'author' });
       expect(text(result)).toContain('Error deleting field "author" from collection "articles": rel boom');
+      expect(result.isError).toBe(true);
     });
   });
 

@@ -75,6 +75,7 @@ describe('FileTools', () => {
 
       expect(stub.uploadFile).not.toHaveBeenCalled();
       expect(text(result)).toContain('Error uploading file');
+      expect(result.isError).toBe(true);
       expect(text(result)).toContain('File not found: /definitely/not/here.txt');
     });
 
@@ -130,6 +131,7 @@ describe('FileTools', () => {
       const result = await tools.uploadFile({ file_path: UPLOAD_FIXTURE });
 
       expect(text(result)).toContain('Error uploading file: 413 Payload Too Large');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -225,6 +227,7 @@ describe('FileTools', () => {
       const result = await tools.getFile({ id: 'missing' });
 
       expect(text(result)).toContain('Error getting file missing: Resource not found (404)');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -246,6 +249,7 @@ describe('FileTools', () => {
       const result = await tools.updateFile({ id: 'file-0001', data: { title: 'X' } });
 
       expect(text(result)).toContain('Error updating file file-0001: forbidden');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -282,6 +286,7 @@ describe('FileTools', () => {
       const result = await tools.deleteFile({ id: 'file-0001', confirm: true });
 
       expect(text(result)).toContain('Error deleting file file-0001: locked');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -314,6 +319,7 @@ describe('FileTools', () => {
       const result = await tools.createFolder({ name: 'Invoices' });
 
       expect(text(result)).toContain('Error creating folder: duplicate name');
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -424,6 +430,7 @@ describe('FileTools', () => {
       const result = await tools.getFileUrl({ id: 'ghost' });
 
       expect(text(result)).toContain('Error getting file URL for ghost: File ghost not found');
+      expect(result.isError).toBe(true);
     });
 
     it('returns an error when the lookup request fails', async () => {
@@ -432,6 +439,7 @@ describe('FileTools', () => {
       const result = await tools.getFileUrl({ id: 'file-0001' });
 
       expect(text(result)).toContain('Error getting file URL for file-0001: network down');
+      expect(result.isError).toBe(true);
     });
   });
 });

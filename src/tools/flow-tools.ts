@@ -71,6 +71,7 @@ export class FlowTools {
       logger.toolError('get_flows', error as Error);
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting flows: ${(error as Error).message}`
@@ -109,6 +110,7 @@ export class FlowTools {
       logger.toolError('get_flow', error as Error, { flowId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting flow ${args.id}: ${(error as Error).message}`
@@ -144,6 +146,7 @@ export class FlowTools {
       logger.toolError('trigger_flow', error as Error, { flowId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error triggering flow ${args.id}: ${(error as Error).message}`
@@ -205,6 +208,7 @@ export class FlowTools {
       logger.toolError('create_flow', error as Error, { name: args.name });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error creating flow: ${(error as Error).message}`
@@ -240,6 +244,7 @@ export class FlowTools {
       logger.toolError('update_flow', error as Error, { flowId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error updating flow ${args.id}: ${(error as Error).message}`
@@ -280,6 +285,7 @@ export class FlowTools {
       logger.toolError('delete_flow', error as Error, { flowId: args.id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error deleting flow ${args.id}: ${(error as Error).message}`
@@ -332,6 +338,7 @@ export class FlowTools {
       logger.toolError('get_operations', error as Error, { flowId: args.flow_id });
       
       return {
+        isError: true,
         content: [{
           type: 'text',
           text: `Error getting operations: ${(error as Error).message}`
