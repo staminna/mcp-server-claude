@@ -1,6 +1,6 @@
 # Build the TypeScript sources, then ship only the compiled output and the
 # production dependency tree.
-FROM node:22-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 
 ENV NODE_ENV=production
 
