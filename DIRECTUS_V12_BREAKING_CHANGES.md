@@ -1,4 +1,4 @@
-# Directus 12.0 → 12.4 — Impact on this MCP Server
+# Directus 12.0 → 12.6 — Impact on this MCP Server
 
 Sources:
 - https://directus.com/docs/releases/breaking-changes/version-12
@@ -237,6 +237,116 @@ Studio and email-side only.
 
 Only relevant if the `FileTools` folder helpers are ever exposed: a non-admin
 token could not list folders on 12.4.0.
+
+---
+
+## 12.5.0
+
+### `@directus/sdk` 26 → 27 (#28072) — **absorbed**
+
+Another type-only major: `DirectusNotification.id` is a `number`,
+`DirectusField.schema` is nullable, `FieldMetaConditionOptionType` is gone
+(condition `options` is `Record<string, any>`), and every `ExtensionSchema`
+property is optional. This server imports SDK *commands* and the schema
+snapshot/diff output types, and keeps its own `DirectusField`, so `tsc` is clean
+on 27.1.0 without code changes. The SDK's `readPermission`, `readActivity` and
+similar commands now reject a `null` key, but this server does not use them.
+
+### Strict `ip_access` validation (#28243) — documented
+
+Policy `ip_access` subnets with a malformed prefix (`10.0.0.0/ 24`,
+`10.0.0.0/+24`) are no longer accepted. A policy that *already* stores one
+makes **every** request from a user holding it fail. Through this server that
+looks like a token or connectivity failure on every tool. If a token that used
+to work starts failing on 12.5 with no other change, check the `ip_access` of
+its policies. This server has no policy tools, so no code change.
+
+### `/server/license` drops `downgrade_reason`; license errors removed (#28331) — no impact
+
+This server never reads the license endpoint or matches those error codes.
+
+### Creating a collection with neither `schema` nor `meta` → 400 instead of 403 (#28258) — no impact
+
+`create_collection` always sends `meta`, and either `schema: {}` (a table) or
+`schema: null` (a folder), so it never sends that payload.
+
+### Geometry subtype filters fixed (#28308) — note
+
+`filter` on a field like `geometry.Point` now works in `get_collection_items`.
+Nothing changed here.
+
+### TFA enforcement, `CACHE_SCHEMA_MAX_ITERATIONS` removal, Preview Base URL — no impact
+
+These change the server configuration and the Studio, not the API this server
+calls.
+
+---
+
+## 12.5.1
+
+Dependency bumps only — no impact.
+
+---
+
+## 12.6.0
+
+### Directus requires Node.js 26 (#27737) — **adopted**
+
+Directus itself no longer runs on Node 22. This server is only an HTTP client
+of Directus and does not strictly have to follow, but it now does, to keep one
+supported runtime across the stack: `engines.node` is `>=26.0.0`, the Docker
+image builds and runs on `node:26-alpine`, and CI tests on Node 26.
+**Installing this package on Node 22/24 is now unsupported.**
+
+### OpenAPI `x-metadata` → `Metadata` (#28323) — no impact
+
+This server does not consume `/server/specs/oas`.
+
+### `/mcp` answers `405` to authenticated `GET`/`HEAD` (#28360) — no impact
+
+That is Directus's built-in MCP endpoint, not this server.
+
+### Default AI models, `TELEMETRY_URL`, Default Exports Folder, `richtext` extensions — no impact
+
+All of these are server-side settings or Studio features. The Default Exports
+Folder is a `directus_settings` field with no endpoint of its own.
+
+---
+
+## 12.6.1
+
+### Many-to-many search matches the related fields (#28422) — **surfaced**
+
+`search` on a junction list now matches the related collection's displayed
+fields, not only the junction's own, and a numeric search no longer matches
+hidden ID fields such as the junction row ID. The same `search` sent through
+`get_collection_items` can therefore return different rows than on 12.6.0. The
+parameter's description says so.
+
+### Run Script / sandbox errors arrive as plain objects (#28441) — documented
+
+Errors passed into a Run Script operation (for example the validation errors
+from a failed Condition) are now plain objects with `name`, `message`, `code`,
+`status` and `extensions`, not `Error` instances. A script created with
+`create_flow` that checks `instanceof Error` should check `err.message` /
+`err.code` instead.
+
+### Login redirect and sandbox URL-scope fixes, Environment Sync presets — no impact
+
+---
+
+## What changed in this package for 12.6.0
+
+- **Node.js `>=26.0.0`** (was `>=22.0.0`); Docker image and CI on Node 26.
+- **`@directus/sdk` `^26.0.0` → `^27.1.0`.** Type-only upgrade, no code change.
+- **`get_collection_items`** documents the 12.6.1 m2m `search` behaviour.
+- **Dependencies:** `@modelcontextprotocol/sdk` 1.32.2, `axios` 1.21.0, `ws`
+  8.22.2, `@types/node` 26, `typescript` 5.9.3, `vitest`/`@vitest/coverage-v8`
+  4.1.12, `@typescript-eslint/*` 8.72.1, plus `npm audit fix`, which clears
+  body-parser, follow-redirects, fast-uri, `@hono/node-server` and
+  `@vitest/mocker`. `npm audit --omit=dev` is clean. One moderate advisory is
+  left in dev-only tooling: `minimatch` through `@typescript-eslint` 8, with no
+  fix inside the `^10` range `typescript-estree` needs. It does not ship.
 
 ---
 

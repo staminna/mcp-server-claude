@@ -129,7 +129,13 @@ export const TOOL_DEFINITIONS = [
         filter: { type: 'object', description: 'Filter conditions' },
         sort: { type: 'array', items: { type: 'string' }, description: 'Sort fields' },
         fields: { type: 'array', items: { type: 'string' }, description: 'Fields to return' },
-        search: { type: 'string', description: 'Search query' },
+        search: {
+          type: 'string',
+          description:
+            'Full-text search across the collection\'s searchable fields. Since Directus 12.6.1 a search on a ' +
+            'many-to-many junction also matches the related fields, and a numeric search no longer matches ' +
+            'hidden ID fields such as the junction row ID.',
+        },
         version: {
           type: 'string',
           description:

@@ -1,6 +1,6 @@
 {
   "name": "@staminna/directus-mcp-server",
-  "version": "12.4.1",
+  "version": "12.6.0",
   "description": "MCP server for Directus 12 — items, collections, files, flows, users, and schema tools",
   "mcpName": "io.github.staminna/directus-mcp-server",
   "main": "dist/lib.js",
@@ -57,14 +57,14 @@
   "author": "Jorge Domingues Nunes",
   "license": "MIT",
   "dependencies": {
-    "@directus/sdk": "^26.0.0",
+    "@directus/sdk": "^27.1.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "axios": "^1.11.0",
     "dotenv": "^16.6.1",
     "ws": "^8.18.3"
   },
   "devDependencies": {
-    "@types/node": "^22.18.1",
+    "@types/node": "^26.6.6",
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
@@ -86,6 +86,6 @@
     }
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=26.0.0"
   }
 }

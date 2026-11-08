@@ -29,6 +29,8 @@ Coverage badges are generated from `coverage/coverage-summary.json` by `npm run 
 
 ## Installation
 
+Requires **Node.js 26 or newer** (from 12.6.0, matching Directus 12.6).
+
 ### Via npm (Recommended)
 
 ```bash
@@ -282,7 +284,7 @@ For Claude.ai web interface with MCP support:
 |------|-------------|
 | `list_collections` | List all collections; folders and inactive collections (Directus 12.4) are marked |
 | `get_collection_schema` | Get schema for a specific collection |
-| `get_collection_items` | Get items from a collection with filtering |
+| `get_collection_items` | Get items from a collection with filtering; `search` also matches related fields on m2m junctions (Directus 12.6.1) |
 | `create_collection` | Create a new collection |
 | `delete_collection` | Delete a collection (requires `confirm`) |
 | `create_item` | Create a new item in a collection |
