@@ -42,14 +42,21 @@ Thumbs.db
 coverage/
 
 # Local MCP client configs and launchers (may contain access tokens)
-.windsurfrc
-!.windsurfrc.example
+.windsurfrc*
 claude-desktop-config*.json
 cowork-mcp-config.json
 mcp-config-direct.json
-start-mcp.sh
+start-mcp*.sh
 mcp-cloude-server-directus-fixed.ts
+
+# Legacy / local-only files kept out of the repo
+claude-mcp-server-directus.ts
+setup-local-https.sh
 
 # Local agent state artifacts
 registered_agents.json
 task_agent_mapping.json
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+.ignore

@@ -1,6 +1,6 @@
 # @staminna/directus-mcp-server
 
-MCP server for Directus 12 — items, collections, files, flows, users, and schema tools. TypeScript, typed throughout.
+**Turn Directus 12 into an AI-operated backend.** Your agent models the data, ships the API, imports your records, wires the automations and debugs the permissions. You just describe the business. Reduce costs
 
 [![npm version](https://badge.fury.io/js/%40staminna%2Fdirectus-mcp-server.svg)](https://www.npmjs.com/package/@staminna/directus-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -17,36 +17,155 @@ MCP server for Directus 12 — items, collections, files, flows, users, and sche
 
 Coverage badges are generated from `coverage/coverage-summary.json` by `npm run badges` (no external service required). Run `npm run test:coverage` first.
 
-## Features
+---
 
-- 🔐 **Full Authentication** - Token-based authentication with Directus
-- 📦 **Collection Management** - CRUD operations for collections and items
-- 📁 **File Operations** - Upload, download, and manage files
-- 🔄 **Flow Management** - Create, update, trigger, and manage Directus Flows
-- 👥 **User Management** - User CRUD and role management
-- 🔍 **Schema Tools** - Analyze and validate collection schemas
-- 🩺 **Diagnostics** - Collection access diagnostics and troubleshooting
+## Why this, why now
 
-## Installation
+[Directus](https://directus.io) already gives you a production backend for free: a SQL database you own, instant **REST + GraphQL APIs**, auth, roles and permissions, file storage, Flows (automation) and a no-code admin app for your team. What it doesn't give you is speed of *setup*. Modelling collections, relations, permissions and flows still takes clicks and hours.
 
-Requires **Node.js 26 or newer** (from 12.6.0, matching Directus 12.6).
+This MCP server lets Claude, Cursor or any MCP agent run Directus for you. **34 typed tools** cover collections, fields, relations, items, bulk ops, CSV/JSON import, schema snapshot/diff/apply, flows, users, files and access diagnostics. Each one carries read/write safety annotations, and deletes and schema applies require explicit confirmation.
 
-### Via npm (Recommended)
+**What you can stand up in an afternoon:**
 
-```bash
-npm install -g @staminna/directus-mcp-server
+- 🛒 **Shop / catalog:** products, categories, variants, stock, images; import the supplier CSV; the API is ready for your storefront.
+- 🌐 **Website CMS:** pages, menus, blog, SEO fields, translations; your marketing team edits in the Directus app.
+- 🤝 **Lightweight CRM:** leads, companies, deals, activity; a Flow notifies you on every new lead.
+- 📅 **Bookings / services:** resources, slots, customers, reservations, with roles for staff and the public.
+- 🧰 **Internal back-office:** replace the spreadsheet; keep the data in SQL with an audit trail and permissions.
+
+Then move it between environments with `get_schema_snapshot` → `diff_schema` → `apply_schema`.
+
+---
+
+## Quick start (60 seconds)
+
+1. In Directus, create a user for the agent and generate a **static token** (User → Token).
+2. Paste the config below into your agent.
+3. Ask: *"List my collections, then create a `products` collection with name, price, stock and a many-to-one `category`."*
+
+Requires **Node.js ≥ 26** · works with **Directus 12.0 – 12.6** ([compatibility notes](DIRECTUS_V12_BREAKING_CHANGES.md)).
+
+## Add it to your agent
+
+One config works for every MCP client:
+
+```json
+{
+  "mcpServers": {
+    "directus": {
+      "command": "npx",
+      "args": ["-y", "@staminna/directus-mcp-server"],
+      "env": {
+        "DIRECTUS_URL": "https://your-directus.example.com",
+        "DIRECTUS_TOKEN": "your-static-token"
+      }
+    }
+  }
+}
 ```
 
-### From Source
+| Client | Where it goes |
+|--------|---------------|
+| Claude Code | `claude mcp add directus -e DIRECTUS_URL=https://… -e DIRECTUS_TOKEN=… -- npx -y @staminna/directus-mcp-server` |
+| Claude Desktop | `claude_desktop_config.json` (Settings → Developer → Edit Config) |
+| Cursor | `~/.cursor/mcp.json` or `.cursor/mcp.json` in the project |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| VS Code / Cline / others | the client's MCP config, using the same `mcpServers` block |
 
-```bash
-git clone https://github.com/staminna/mcp-server-claude.git
-cd mcp-server-claude
-npm install
-npm run build
+Restart the client after editing. Other ways to run it:
+- **From source:** `"command": "node", "args": ["/path/to/mcp-server-claude/dist/index.js"]` (after `npm install && npm run build`)
+- **Docker:** `"command": "docker", "args": ["run", "-i", "--rm", "-e", "DIRECTUS_URL", "-e", "DIRECTUS_TOKEN", "directus-mcp"]` (after `docker build -t directus-mcp .`)
+
+---
+
+## Ask for outcomes, not API calls
+
+```
+"Create a products catalog: products (name, slug, price, stock, images) with a M2O category and M2M tags."
+"Import customers.csv into the customers collection — dry run first."
+"Create a flow that runs when an order is created and posts it to my webhook."
+"Why can't the Public role read articles? Diagnose it."
+"Snapshot the schema of products and categories so I can apply it to production."
+"Show me all orders from this week over 100 €, newest first."
 ```
 
-## Environment Variables
+---
+
+## Tools
+
+#### Collection Management
+| Tool | Description |
+|------|-------------|
+| `list_collections` | List all collections; folders and inactive collections (Directus 12.4) are marked |
+| `get_collection_schema` | Get schema for a specific collection |
+| `get_collection_items` | Get items from a collection with filtering; `search` also matches related fields on m2m junctions (Directus 12.6.1) |
+| `create_collection` | Create a new collection |
+| `delete_collection` | Delete a collection (requires `confirm`) |
+| `create_item` | Create a new item in a collection |
+| `update_item` | Update an existing item, optionally into a draft `version` |
+| `delete_items` | Delete items by `ids` or by `query` (see note below) |
+| `bulk_operations` | Execute bulk create, update, delete |
+
+#### Schema & Fields
+| Tool | Description |
+|------|-------------|
+| `create_field` | Create a new field in a collection |
+| `update_field` | Update an existing field |
+| `delete_field` | Delete a field from a collection |
+| `create_relationship` | Create relationships (O2O, O2M, M2O, M2M, M2A) |
+| `analyze_collection_schema` | Analyze schema with relationship mapping |
+| `validate_collection_schema` | Validate schema and relationships |
+| `analyze_relationships` | Analyze relationships across collections |
+| `get_schema_snapshot` | Read a full or partial snapshot of the data model |
+| `diff_schema` | Compare a snapshot against the live schema (`merge` or `mirror`). Directus drops request bodies over ~96 KB, so pass a partial snapshot from `get_schema_snapshot` with `include_collections` on any sizeable data model — see `DIRECTUS_V12_BREAKING_CHANGES.md` |
+| `apply_schema` | Apply a diff (requires `confirm`) |
+
+#### Flow Management
+| Tool | Description |
+|------|-------------|
+| `get_flows` | Get all flows, optionally by `folder` (Directus 12.4) |
+| `get_flow` | Get a specific flow by ID |
+| `create_flow` | Create a new automation flow, optionally inside a `folder` |
+| `update_flow` | Update an existing flow |
+| `delete_flow` | Delete a flow |
+| `trigger_flow` | Manually trigger a flow |
+| `get_operations` | Get flow operations |
+
+#### User Management
+| Tool | Description |
+|------|-------------|
+| `get_users` | Get all users with filtering |
+| `get_user` | Get a specific user by ID |
+
+#### File Management
+| Tool | Description |
+|------|-------------|
+| `get_files` | Get files with filtering and pagination |
+| `import_data` | Import CSV/JSON into one collection, or several at once |
+
+#### Diagnostics
+| Tool | Description |
+|------|-------------|
+| `diagnose_collection_access` | Diagnose collection access issues |
+| `refresh_collection_cache` | Refresh collection cache |
+| `validate_collection_creation` | Validate newly created collections |
+
+#### Discovery
+| Tool | Description |
+|------|-------------|
+| `search_tools` | Find the tools matching a task description |
+
+#### Built-in safety
+
+- Every tool carries MCP annotations: 17 are read-only, 6 are additive (`destructiveHint: false`), and 11 are destructive (deletes, overwriting updates, `apply_schema`, `import_data`, `trigger_flow`).
+- Deletes and `apply_schema` require `confirm: true`. `delete_items` takes **either** `ids` or a `query`, never falls back to deleting everything, and (since Directus 12.4) only reaches items the token can read. To wipe a collection you must ask explicitly: `{ "query": { "limit": -1 }, "confirm": true }`.
+
+---
+
+## Configuration
+
+<details>
+<summary>Environment variables</summary>
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -64,450 +183,53 @@ npm run build
 | `DIRECTUS_IMPORT_MAX_FILE_SIZE` | No | Client-side import size ceiling in bytes, mirroring the Directus `IMPORT_MAX_FILE_SIZE` (default: 50 MB) |
 | `LOG_LEVEL` | No | `DEBUG`/`INFO`/`WARN`/`ERROR` (default: `INFO`). Logs go to stderr; stdout is reserved for MCP |
 
-### TLS / client certificates
+</details>
 
-Set these when the Directus instance uses a private CA or requires a client
-certificate. Each of `CA`/`CERT`/`KEY`/`PFX` accepts either a file path or the
-PEM/DER content itself.
+<details>
+<summary>TLS / client certificates</summary>
+
+For a private CA or a client certificate. `CA`/`CERT`/`KEY`/`PFX` accept a file path or the PEM/DER content itself.
 
 | Variable | Description |
-|----------|-------------|
-| `DIRECTUS_HTTPS_CA` | Certificate authority |
-| `DIRECTUS_HTTPS_CERT` | Client certificate |
-| `DIRECTUS_HTTPS_KEY` | Client private key |
-| `DIRECTUS_HTTPS_PFX` | PKCS#12 bundle (alternative to cert/key) |
-| `DIRECTUS_HTTPS_PASSPHRASE` | Passphrase for the key or PFX |
-| `DIRECTUS_HTTPS_REJECT_UNAUTHORIZED` | `false` to accept self-signed certificates |
-| `DIRECTUS_HTTPS_SERVERNAME` | SNI server name override |
+|
 
----
+</details>
 
-## Authentication — no OAuth required
-
-This server uses a **static Directus access token** (`DIRECTUS_TOKEN`) and runs over **stdio transport**. OAuth is *not* required, by design:
-
-- The MCP specification only defines OAuth 2.1 authorization for **HTTP-based transports**. For stdio servers the spec says implementations *"SHOULD NOT"* use it and should instead retrieve credentials from the environment — exactly what this server does.
-- **Directus 12 fully supports static access tokens.** The OAuth 2.1 support Directus added (mid-2026) applies to its own built-in *remote* MCP endpoint and is optional; there are no breaking changes to token authentication in Directus 12 (see `DIRECTUS_V12_BREAKING_CHANGES.md`).
-- OAuth only becomes relevant if you expose an MCP server **remotely over HTTP** (Streamable HTTP/SSE). As a local stdio subprocess of Claude Desktop, Claude Code, Cursor, etc., this server needs only the env token.
-
-Generate the token in Directus under **User Settings → Token** (use a dedicated user with least-privilege role for production).
-
-### Using with a Claude subscription (Max/Pro) — no API key needed
-
-MCP servers do not consume Anthropic API tokens themselves; only the AI client's model calls do. If you use this server inside **Claude Code or Claude Desktop with a Claude Max (or Pro) subscription**, the model usage is covered by the subscription — you do **not** need an Anthropic API key. An API key is only required when driving Claude programmatically via the Claude API (e.g. the remote MCP connector).
-
----
-
-## IDE Configuration
-
-### 🟣 Cursor
-
-1. Open Cursor Settings: `Cmd+,` (macOS) or `Ctrl+,` (Windows/Linux)
-2. Search for **"MCP"** or navigate to **Features → MCP Servers**
-3. Click **"Edit in settings.json"**
-4. Add the following configuration:
-
-```json
-{
-  "mcpServers": {
-    "directus": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@staminna/directus-mcp-server"
-      ],
-      "env": {
-        "DIRECTUS_URL": "http://localhost:8065",
-        "DIRECTUS_TOKEN": "your-directus-token-here"
-      }
-    }
-  }
-}
-```
-
-**Or if installed locally:**
-
-```json
-{
-  "mcpServers": {
-    "directus": {
-      "command": "node",
-      "args": [
-        "/path/to/mcp-server-claude/dist/index.js"
-      ],
-      "env": {
-        "DIRECTUS_URL": "http://localhost:8065",
-        "DIRECTUS_TOKEN": "your-directus-token-here"
-      }
-    }
-  }
-}
-```
-
-5. Save the file and restart Cursor
-
----
-
-### 🌊 Windsurf
-
-1. Open Windsurf Settings: `Cmd+,` (macOS) or `Ctrl+,` (Windows/Linux)
-2. Search for **"MCP Servers"**
-3. Click **"Edit in settings.json"**
-4. Add the following configuration:
-
-```json
-{
-  "mcpServers": {
-    "directus": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@staminna/directus-mcp-server"
-      ],
-      "env": {
-        "DIRECTUS_URL": "http://localhost:8065",
-        "DIRECTUS_TOKEN": "your-directus-token-here",
-        "DIRECTUS_PROMPTS_COLLECTION_ENABLED": "true",
-        "DIRECTUS_PROMPTS_COLLECTION": "ai_prompts",
-        "DIRECTUS_RESOURCES_ENABLED": "true",
-        "DIRECTUS_RESOURCES_EXCLUDE_SYSTEM": "true",
-        "NODE_ENV": "production"
-      }
-    }
-  }
-}
-```
-
-**Or if installed locally:**
-
-```json
-{
-  "mcpServers": {
-    "directus": {
-      "command": "node",
-      "args": [
-        "/path/to/mcp-server-claude/dist/index.js"
-      ],
-      "env": {
-        "DIRECTUS_URL": "http://localhost:8065",
-        "DIRECTUS_TOKEN": "your-directus-token-here"
-      }
-    }
-  }
-}
-```
-
-5. Save the file
-6. **Quit Windsurf completely** (`Cmd+Q` or `Ctrl+Q`)
-7. Reopen Windsurf and wait ~10 seconds for MCP to initialize
-
----
-
-### 🤖 Claude Desktop
-
-1. Locate your Claude Desktop config file:
-   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-   - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-   - **Linux**: `~/.config/Claude/claude_desktop_config.json`
-
-2. Create or edit the config file:
-
-```json
-{
-  "mcpServers": {
-    "directus": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@staminna/directus-mcp-server"
-      ],
-      "env": {
-        "DIRECTUS_URL": "http://localhost:8065",
-        "DIRECTUS_TOKEN": "your-directus-token-here"
-      }
-    }
-  }
-}
-```
-
-**Or if installed locally:**
-
-```json
-{
-  "mcpServers": {
-    "directus": {
-      "command": "node",
-      "args": [
-        "/path/to/mcp-server-claude/dist/index.js"
-      ],
-      "env": {
-        "DIRECTUS_URL": "http://localhost:8065",
-        "DIRECTUS_TOKEN": "your-directus-token-here"
-      }
-    }
-  }
-}
-```
-
-3. Save the file and restart Claude Desktop
-
----
-
-### 🔮 Claude.ai (Web with MCP)
-
-For Claude.ai web interface with MCP support:
-
-1. Navigate to Claude.ai settings
-2. Find the MCP configuration section
-3. Add a new MCP server with:
-
-```json
-{
-  "name": "directus",
-  "command": "npx",
-  "args": ["-y", "@staminna/directus-mcp-server"],
-  "env": {
-    "DIRECTUS_URL": "http://localhost:8065",
-    "DIRECTUS_TOKEN": "your-directus-token-here"
-  }
-}
-```
-
-> **Note**: Claude.ai MCP support may require a Pro subscription and specific browser extensions.
-
----
-
-## Available Tools
-
-### Collection Management
-| Tool | Description |
-|------|-------------|
-| `list_collections` | List all collections; folders and inactive collections (Directus 12.4) are marked |
-| `get_collection_schema` | Get schema for a specific collection |
-| `get_collection_items` | Get items from a collection with filtering; `search` also matches related fields on m2m junctions (Directus 12.6.1) |
-| `create_collection` | Create a new collection |
-| `delete_collection` | Delete a collection (requires `confirm`) |
-| `create_item` | Create a new item in a collection |
-| `update_item` | Update an existing item, optionally into a draft `version` |
-| `delete_items` | Delete items by `ids` or by `query` (see note below) |
-| `bulk_operations` | Execute bulk create, update, delete |
-
-### Schema & Fields
-| Tool | Description |
-|------|-------------|
-| `create_field` | Create a new field in a collection |
-| `update_field` | Update an existing field |
-| `delete_field` | Delete a field from a collection |
-| `create_relationship` | Create relationships (O2O, O2M, M2O, M2M, M2A) |
-| `analyze_collection_schema` | Analyze schema with relationship mapping |
-| `validate_collection_schema` | Validate schema and relationships |
-| `analyze_relationships` | Analyze relationships across collections |
-| `get_schema_snapshot` | Read a full or partial snapshot of the data model |
-| `diff_schema` | Compare a snapshot against the live schema (`merge` or `mirror`). Directus drops request bodies over ~96 KB, so pass a partial snapshot from `get_schema_snapshot` with `include_collections` on any sizeable data model — see `DIRECTUS_V12_BREAKING_CHANGES.md` |
-| `apply_schema` | Apply a diff (requires `confirm`) |
-
-### Flow Management
-| Tool | Description |
-|------|-------------|
-| `get_flows` | Get all flows, optionally by `folder` (Directus 12.4) |
-| `get_flow` | Get a specific flow by ID |
-| `create_flow` | Create a new automation flow, optionally inside a `folder` |
-| `update_flow` | Update an existing flow |
-| `delete_flow` | Delete a flow |
-| `trigger_flow` | Manually trigger a flow |
-| `get_operations` | Get flow operations |
-
-### User Management
-| Tool | Description |
-|------|-------------|
-| `get_users` | Get all users with filtering |
-| `get_user` | Get a specific user by ID |
-
-### File Management
-| Tool | Description |
-|------|-------------|
-| `get_files` | Get files with filtering and pagination |
-| `import_data` | Import CSV/JSON into one collection, or several at once |
-
-### Diagnostics
-| Tool | Description |
-|------|-------------|
-| `diagnose_collection_access` | Diagnose collection access issues |
-| `refresh_collection_cache` | Refresh collection cache |
-| `validate_collection_creation` | Validate newly created collections |
-
-### Discovery
-| Tool | Description |
-|------|-------------|
-| `search_tools` | Find the tools matching a task description |
-
-### Tool safety annotations
-
-Every tool carries MCP annotations so a client can tell reads from writes before
-calling: 17 are `readOnlyHint: true`, 6 are explicitly `destructiveHint: false`
-(additive — creates), and 11 are `destructiveHint: true` (deletes, overwriting
-updates, `apply_schema`, `import_data`, `trigger_flow`).
-
-Note that `destructiveHint` **defaults to true** in the MCP spec, which is why
-the additive tools set it to `false` rather than omitting it.
-
-### Deleting items safely
-
-Following Directus 12.3.0, `delete_items` never falls back to deleting
-everything:
-
-- `ids: [...]` deletes those items.
-- `query: {...}` deletes everything the query matches.
-- Passing both is rejected.
-- Passing neither deletes nothing and issues no request.
-
-To delete every item in a collection, ask for it explicitly:
-
-```json
-{ "collection": "articles", "query": { "limit": -1 }, "confirm": true }
-```
-
-Since Directus 12.4.0 a `query` resolves its targets under the token's **read**
-permissions: read access to the primary key is required, and only items the
-token can read are deleted. A token that can delete but not read deletes
-nothing.
-
----
-
-## Usage Examples
-
-Once configured, you can interact with Directus through your AI assistant:
-
-```
-"List all collections in my Directus instance"
-
-"Create a new collection called 'blog_posts' with title, content, and published fields"
-
-"Get all items from the 'products' collection where status is 'published'"
-
-"Create a new flow that triggers on item creation in the 'orders' collection"
-
-"Analyze the schema of the 'users' collection including relationships"
-```
+**Authentication:** a static Directus token over stdio. No OAuth is needed: the MCP spec reserves OAuth for HTTP transports and tells stdio servers to read credentials from the environment. Use a dedicated least-privilege user in production. With a Claude Pro/Max subscription in Claude Code or Desktop you don't need an Anthropic API key either.
 
 ---
 
 ## Troubleshooting
 
-### MCP Server Not Connecting
-
-1. **Verify Directus is running**: Ensure your Directus instance is accessible at the configured URL
-2. **Check token permissions**: The API token needs appropriate permissions for the operations you want to perform
-3. **Restart IDE**: After changing MCP configuration, fully restart your IDE
-4. **Check logs**: Look for MCP-related errors in your IDE's developer console
-
-### Permission Errors
-
-Ensure your Directus token has the required permissions:
-- Admin token for full access
-- Or configure specific role permissions for collections you need to access
-
-### Connection Timeout
-
-If using a remote Directus instance:
-- Verify the URL is correct and accessible
-- Check firewall/network settings
-- Ensure CORS is properly configured on Directus
+- **Not connecting:** check `DIRECTUS_URL` is reachable and the token is set, then fully restart the client. Logs go to stderr (`LOG_LEVEL=DEBUG` for more).
+- **Permission errors:** run `diagnose_collection_access` on the collection. It tells permissions, inactive collections (12.4+) and folders apart.
+- **Timeouts on a remote instance:** raise `DIRECTUS_TIMEOUT` and check firewall/proxy settings.
 
 ---
 
 ## Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Watch mode
-npm run dev
-
-# Run server
-npm start
-
-# Type check
-npm run typecheck
-
-# Lint
-npm run lint
+npm install && npm run build      # build to dist/
+npm run typecheck && npm run lint
+npm test                          # unit + integration (vitest)
+npm run test:coverage             # enforces 95% thresholds
+npm run test:e2e                  # spawns the real server over stdio against a mock Directus
+npm run badges                    # refresh the coverage badges above
 ```
 
-### Testing
-
-The project ships unit, integration and end-to-end suites (vitest). Coverage thresholds (95% statements/lines/functions/branches) are enforced — the test run fails below them.
+**Live verification:** `tests/live/demo.mjs` drives every tool against a real instance. It reads `DIRECTUS_URL`/`DIRECTUS_TOKEN` from `ENV_FILE` (default `.env.mdbaudio`):
 
 ```bash
-# Unit + integration tests
-npm test
-
-# With coverage report (coverage/ — text, html, lcov, json-summary)
-npm run test:coverage
-
-# End-to-end: builds, then spawns the real server over stdio against a mock Directus
-npm run test:e2e
-
-# Everything
-npm run test:all
-
-# Refresh the README coverage badges from the last coverage run
-npm run badges
+ENV_FILE=.env npm run test:live                               # read-only + guards
+ENV_FILE=.env npm run test:live -- --write                    # + scratch mcp_demo_<stamp> collection, always cleaned up
+ENV_FILE=.env npm run test:live -- --write --apply-schema     # + apply_schema, merge mode, scratch only
 ```
 
-### Live verification against a real Directus
-
-`tests/live/demo.mjs` drives all 34 tools against a real instance over stdio. It is
-deliberately outside `npm test` — it needs a credential and a reachable server, so it
-is a manual gate rather than a CI one.
-
-```bash
-# Read-only + guard phases (touches nothing)
-ENV_FILE=.env.mdbaudio npm run test:live
-
-# Also create, mutate and drop a scratch mcp_demo_<stamp> collection
-ENV_FILE=.env.mdbaudio npm run test:live -- --write
-
-# Additionally exercise apply_schema, confined to that scratch collection
-ENV_FILE=.env.mdbaudio npm run test:live -- --write --apply-schema
-```
-
-Credentials are read from `ENV_FILE` (default `.env.mdbaudio`) so they never pass through
-shell history. Results are reported per tool as pass / refused-by-instance / fail, keeping
-"this server is broken" separate from "this instance declined". `--apply-schema` diffs in
-**merge** mode, which yields a strictly additive diff, so it can only re-create the scratch
-collection — it cannot drop anything that already existed. Cleanup runs even when an
-earlier phase fails.
-
-The e2e suite uses the official MCP SDK client (`StdioClientTransport`) to spawn `dist/index.js` as a subprocess, talking to an in-process mock Directus on an ephemeral port — no real Directus instance or network access needed.
-
----
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
+Contributions welcome: fork, branch, open a PR.
 
 ## License
 
 MIT © [Jorge Domingues Nunes](https://github.com/staminna)
 
----
-
-## Links
-
-- [npm Package](https://www.npmjs.com/package/@staminna/directus-mcp-server)
-- [GitHub Repository](https://github.com/staminna/mcp-server-claude)
-- [Directus Documentation](https://docs.directus.io/)
-- [MCP Protocol Specification](https://modelcontextprotocol.io/)
+[npm](https://www.npmjs.com/package/@staminna/directus-mcp-server) · [GitHub](https://github.com/staminna/mcp-server-claude) · [Directus docs](https://directus.io/docs) · [MCP spec](https://modelcontextprotocol.io/)
