@@ -2,8 +2,8 @@ name: CI
 
 on:
   push:
-    # init is the default branch; without it CI never runs on the mainline.
-    branches: [init, main, v12.0.0]
+    # main is the default branch; PRs into it are covered by pull_request below.
+    branches: [main]
   pull_request:
 
 jobs:
