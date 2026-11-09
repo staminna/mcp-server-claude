@@ -216,6 +216,7 @@ npm test                          # unit + integration (vitest)
 npm run test:coverage             # enforces 95% thresholds
 npm run test:e2e                  # spawns the real server over stdio against a mock Directus
 npm run badges                    # refresh the coverage badges above
+npm run tdqs                      # tool-definition quality gate (no API key needed)
 ```
 
 **Live verification:** `tests/live/demo.mjs` drives every tool against a real instance. It reads `DIRECTUS_URL`/`DIRECTUS_TOKEN` from `ENV_FILE` (default `.env.mdbaudio`):
@@ -226,7 +227,18 @@ ENV_FILE=.env npm run test:live -- --write                    # + scratch mcp_de
 ENV_FILE=.env npm run test:live -- --write --apply-schema     # + apply_schema, merge mode, scratch only
 ```
 
-Contributions welcome: fork, branch, open a PR.
+**Tool-definition quality:** the 34 definitions are held to
+[TDQS](https://tdqs.dev), the open rubric Glama scores MCP servers with. A
+description has to state what the tool does, when to use it instead of its
+siblings, the side effects and failure modes an agent cannot infer from the
+schema, and what it returns; every parameter carries a `description`.
+`npm run tdqs` runs the deterministic stages of that check — no model, no API
+key — and fails on errors; `npm run tdqs:report` prints the full findings,
+notes and warnings included. CI runs the gate on every push and pull request.
+
+Contributions welcome: fork, branch, open a PR. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md); vulnerabilities go through
+[SECURITY.md](SECURITY.md), not a public issue.
 
 ## License
 
