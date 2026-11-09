@@ -6,6 +6,8 @@ tracks the Directus major this server supports.
 
 ## [Unreleased]
 
+## [12.6.1] - 2026-11-09
+
 ### Changed
 
 - Every one of the 34 tool definitions now states what the tool does, when to
@@ -74,7 +76,8 @@ tracks the Directus major this server supports.
 - First published release: 34 tools over Directus 12 collections, fields,
   relations, items, flows, users, files and access diagnostics.
 
-[Unreleased]: https://github.com/staminna/mcp-server-claude/compare/v12.6.0...HEAD
+[Unreleased]: https://github.com/staminna/mcp-server-claude/compare/v12.6.1...HEAD
+[12.6.1]: https://github.com/staminna/mcp-server-claude/compare/v12.6.0...v12.6.1
 [12.6.0]: https://github.com/staminna/mcp-server-claude/compare/v12.4.1...v12.6.0
 [12.4.1]: https://github.com/staminna/mcp-server-claude/compare/v12.4.0...v12.4.1
 [12.4.0]: https://github.com/staminna/mcp-server-claude/compare/v12.3.0...v12.4.0
