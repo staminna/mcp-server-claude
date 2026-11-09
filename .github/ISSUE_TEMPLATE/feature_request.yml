@@ -1,0 +1,27 @@
+name: Feature request
+description: A missing tool, parameter or Directus capability
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: The task an agent cannot complete today, not the solution you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed tool or change
+      description: |
+        If it is a new tool, name it and say what it would return, and which
+        existing tool an agent might confuse it with.
+  - type: input
+    id: endpoint
+    attributes:
+      label: Directus endpoint or SDK call behind it
+      placeholder: "POST /utils/cache/clear"
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today

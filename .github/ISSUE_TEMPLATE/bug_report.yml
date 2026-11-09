@@ -1,0 +1,61 @@
+name: Bug report
+description: A tool misbehaves, errors, or returns something unexpected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste a Directus token, a `.env` file or an MCP client config.
+        Redact URLs and IDs you do not want public.
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: "12.6.0 (npm ls @staminna/directus-mcp-server)"
+    validations:
+      required: true
+  - type: input
+    id: directus
+    attributes:
+      label: Directus version
+      placeholder: "12.6.1"
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      placeholder: "node -v"
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: MCP client
+      options: [Claude Desktop, Claude Code, Cursor, VS Code, Other, Direct stdio/HTTP]
+    validations:
+      required: true
+  - type: input
+    id: tool
+    attributes:
+      label: Tool involved
+      placeholder: "apply_schema"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you asked for, what the tool returned, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: The arguments passed to the tool, with secrets redacted.
+      render: json
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant server output. Set LOG_LEVEL=debug for more. Redact tokens.
+      render: shell

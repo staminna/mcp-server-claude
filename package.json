@@ -39,6 +39,9 @@
     "test:e2e": "npm run build && vitest run tests/e2e",
     "test:all": "npm run test:coverage && npm run test:e2e",
     "badges": "istanbul-badges-readme --coverageDir=coverage",
+    "pretdqs": "npm run build",
+    "tdqs": "node scripts/dump-tools.mjs && tdqs lint --file .tdqs-tools.json --server-name directus-mcp-server --fail-on error",
+    "tdqs:report": "node scripts/dump-tools.mjs && tdqs lint --file .tdqs-tools.json --server-name directus-mcp-server --format markdown",
     "prepublishOnly": "npm run clean && npm run build",
     "prepack": "npm run build",
     "test:live": "npm run build && node tests/live/demo.mjs"
@@ -71,6 +74,7 @@
     "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^9.0.0",
     "istanbul-badges-readme": "^1.9.0",
+    "mcp-tdqs": "^0.2.0",
     "msw": "^2.14.6",
     "typescript": "^5.7.2",
     "vitest": "^4.1.11"
