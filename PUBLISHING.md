@@ -77,3 +77,25 @@ Verify at: https://registry.modelcontextprotocol.io/v0/servers?search=directus
    ```
 6. `npm publish`
 7. `mcp-publisher publish`
+
+## Keeping the Glama listing current
+
+[Glama](https://glama.ai/mcp/servers/staminna/mcp-server-claude) grades the
+server on license, quality and maintenance, and re-scans on every push — but
+only once the listing is claimed. An unclaimed listing is crawled on Glama's own
+schedule, which is how its snapshot can sit a year behind a repository that
+ships weekly, and the maintenance grade follows the snapshot, not the repo.
+
+1. Sign in at <https://glama.ai/mcp/servers/staminna/mcp-server-claude/admin>
+   with the GitHub account that owns the repository. Claiming is free.
+   `glama.json` in the repository root names the maintainers, which is what
+   Glama reads to recognise a maintainer on an organisation-owned repo.
+2. Under **Repository syncs**, request a re-sync after a release instead of
+   waiting for the next crawl.
+3. Under **Profile**, keep the name, description and categories in step with
+   the README. The auto-generated description can describe tools the server no
+   longer has.
+
+The quality grade follows the tool definitions: `npm run tdqs` is the local
+check, and the score Glama publishes is the same rubric with the model-scored
+dimensions added on top.
