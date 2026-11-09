@@ -75,7 +75,7 @@
     "eslint": "^9.0.0",
     "istanbul-badges-readme": "^1.9.0",
     "mcp-tdqs": "^0.2.0",
-    "msw": "^2.14.6",
+    "msw": "^3.0.4",
     "typescript": "^5.7.2",
     "vitest": "^4.1.11"
   },
