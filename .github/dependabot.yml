@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      dev-tooling:
+        patterns: ["@typescript-eslint/*", "eslint", "typescript", "vitest", "@vitest/*", "msw", "istanbul-badges-readme", "@types/*"]
+        update-types: [minor, patch]
+      runtime-patches:
+        patterns: ["*"]
+        update-types: [patch]
+    ignore:
+      # The major tracks the Directus major this server supports; bump it
+      # deliberately, with the tool surface reviewed against the new SDK.
+      - dependency-name: "@directus/sdk"
+        update-types: [version-update:semver-major]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"
