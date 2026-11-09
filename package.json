@@ -63,7 +63,7 @@
     "@directus/sdk": "^27.1.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "axios": "^1.11.0",
-    "dotenv": "^16.6.1",
+    "dotenv": "^18.0.9",
     "ws": "^8.18.3"
   },
   "devDependencies": {
