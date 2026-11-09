@@ -85,8 +85,12 @@ export const TOOL_DEFINITIONS = [
     },
     keywords: ["collections", "list", "tables", "browse", "discover"],
     description:
-      'List all collections in the Directus instance. Folders (no table behind them) and inactive ' +
-      'collections (Directus 12.4 refuses to read or write their contents) are marked.',
+      'Lists every collection in the Directus instance with its metadata, so the data model can be discovered ' +
+      'before anything is read or written. Start here when the collection name is unknown; use ' +
+      'get_collection_schema for the fields of one collection and get_collection_items to read its rows. ' +
+      'Folders (grouping elements with no table behind them) and inactive collections (Directus 12.4 refuses to ' +
+      'read or write their contents) are flagged in the result. System collections are omitted unless ' +
+      'include_system is true. Returns one entry per collection with its name, metadata and those flags.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -102,7 +106,13 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["schema", "fields", "structure", "columns", "describe"],
-    description: 'Get the schema for a specific collection',
+    description:
+      'Returns the field-level schema of one collection: field names, database types, interfaces, required and ' +
+      'unique constraints, defaults and relation metadata. Use it before create_item or update_item to learn ' +
+      'which fields exist and which are mandatory; use list_collections to find the collection name first, ' +
+      'analyze_collection_schema when relationship mapping and constraint checks are also wanted. Read-only. ' +
+      'Fails when the collection does not exist or the token cannot read it, and diagnose_collection_access ' +
+      'tells those two apart.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -119,7 +129,15 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["items", "rows", "read", "query", "filter", "search", "list", "version"],
-    description: 'Get items from a collection with optional filtering and pagination',
+    description:
+      'Reads items (rows) from one collection with Directus filtering, sorting, field selection, full-text ' +
+      'search and pagination. This is the read path for content: use get_users, get_files or get_flows for ' +
+      'those system collections, and get_collection_schema when the shape rather than the data is wanted. ' +
+      'Returns at most 25 items unless limit says otherwise, so paginate with offset over large collections. ' +
+      'Results are scoped to what the token may read, so a filter can legitimately return fewer rows than ' +
+      'exist. On versioned collections, version reads one draft and version_raw returns the delta instead of ' +
+      'the merged item. Since Directus 12.6.1 search also matches related fields through a many-to-many ' +
+      'junction.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -160,8 +178,13 @@ export const TOOL_DEFINITIONS = [
     },
     keywords: ["collection", "create", "table", "new", "model"],
     description:
-      'Create a new collection with optional fields. Creates a real table with an auto-increment ' +
-      '`id` when no fields are given; pass `folder: true` for a grouping element instead.',
+      'Creates a collection, either a real database table or a grouping folder. A table gets an auto-increment ' +
+      'integer id when no fields are passed; folder: true makes a grouping element, which has no schema and can ' +
+      'hold neither items nor fields. Use create_field to add fields afterwards, apply_schema to provision ' +
+      'several collections from a snapshot. The table is created immediately and is not rolled back when a ' +
+      'later field in the same call fails. A fresh collection can take a moment to become readable: ' +
+      'validate_collection_creation confirms it, refresh_collection_cache clears a stale cache. Returns the ' +
+      'created collection.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -187,7 +210,12 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["collection", "delete", "drop", "remove", "destroy"],
-    description: 'Delete a collection (requires confirmation)',
+    description:
+      'Drops a collection and every item in it, permanently. Requires confirm: true; without it nothing is ' +
+      'deleted and the call reports what it would have done. Irreversible and not transactional: related items ' +
+      'elsewhere may be left orphaned and a RESTRICT foreign key can make the drop fail halfway. Use ' +
+      'delete_items to remove rows and keep the collection, delete_field to remove a single field. Take ' +
+      'get_schema_snapshot first when the data model may need restoring.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -206,7 +234,13 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["item", "row", "create", "insert", "add", "record"],
-    description: 'Create a new item in a collection',
+    description:
+      'Inserts one item (row) into a collection and returns it, including the generated primary key. Use ' +
+      'bulk_operations for many rows in one call, import_data for a CSV or JSON file, update_item to change a ' +
+      'row that exists. Directus validates the payload, so a missing required field or a failed validation rule ' +
+      'comes back as a tool error and nothing is written. Fields the token may not write are rejected rather ' +
+      'than silently dropped. The payload may include relational fields, which Directus resolves against the ' +
+      'related collection.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -227,8 +261,11 @@ export const TOOL_DEFINITIONS = [
     },
     keywords: ["item", "row", "update", "edit", "patch", "modify", "version", "draft"],
     description:
-      'Update an existing item in a collection. In versioned collections the published item is ' +
-      'read-only — target a draft version instead.',
+      'Updates fields of one item by primary key and leaves fields absent from data untouched: a PATCH, not a ' +
+      'replace. Use create_item for a new row, bulk_operations for many rows, delete_items to remove them. In ' +
+      'versioned collections the published item is read-only, so pass version with a draft key to write into a ' +
+      'draft; without it Directus refuses the write. Overwrites whatever the field held, so read it with ' +
+      'get_collection_items first when the previous value matters. Returns the updated item.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -255,9 +292,13 @@ export const TOOL_DEFINITIONS = [
     },
     keywords: ["items", "rows", "delete", "remove", "destroy", "bulk"],
     description:
-      'Delete items from a collection, either by explicit IDs or by a query. ' +
-      'Providing neither deletes nothing. Since Directus 12.4 a query resolves its targets under the ' +
-      "token's read permissions: read access to the primary key is required and only readable items are deleted.",
+      'Deletes items from a collection, by explicit ids or by a Directus query, permanently. Requires confirm: ' +
+      'true, and passing neither ids nor query deletes nothing. ids and query are mutually exclusive. Since ' +
+      'Directus 12.4 a query resolves its targets under the read permissions of the token: read access to the ' +
+      'primary key is required and only readable items are deleted, so the deleted count can be lower than the ' +
+      'matching count. Use { \"limit\": -1 } in query to deliberately target every item. cascadeDelete also ' +
+      'removes related items and works only with ids. Use delete_collection to drop the whole collection ' +
+      'instead.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -285,7 +326,13 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["field", "column", "create", "add", "schema"],
-    description: 'Create a new field in a collection',
+    description:
+      'Adds a field to an existing collection: a database column plus its Directus interface metadata. Use ' +
+      'create_relationship for relational fields, since this tool creates a plain column and no foreign key, ' +
+      'and update_field for a field that already exists. The column is added immediately; on a non-empty table ' +
+      'a required field without default_value can fail or leave existing rows invalid, so add it optional first ' +
+      'and backfill. type is the Directus type (string, integer, boolean, dateTime, json, uuid and so on) while ' +
+      'interface only affects how the admin app renders it. Returns the created field definition.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -313,7 +360,13 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["field", "column", "update", "edit", "alter", "schema"],
-    description: 'Update an existing field in a collection',
+    description:
+      'Changes an existing field, either its Directus metadata (interface, note, validation, options) or its ' +
+      'database schema (type, required, unique, default_value). Metadata changes are safe; a type change ' +
+      'rewrites the column and can fail or lose precision on existing data, and turning on required or unique ' +
+      'fails on rows that already violate it. Idempotent: the same body applied twice leaves the same result. ' +
+      'Use create_field to add a field, delete_field to remove one, and update_field with a hidden interface to ' +
+      'retire a field without destroying data. Returns the updated field definition.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -340,7 +393,12 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["field", "column", "delete", "drop", "remove"],
-    description: 'Delete a field from a collection (requires confirmation)',
+    description:
+      'Drops one field and its column from a collection, discarding the data in it permanently. Requires ' +
+      'confirm: true. Relations pointing at the field can be left dangling, so check analyze_relationships ' +
+      'first; use update_field to hide a field in the admin app instead of destroying it, delete_collection to ' +
+      'drop the whole table. Not reversible, so take get_schema_snapshot beforehand when the model may need ' +
+      'restoring.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -360,13 +418,23 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["bulk", "batch", "mass", "create", "update", "delete"],
-    description: 'Execute bulk create, update, and delete operations',
+    description:
+      'Applies many writes to one collection in a single call: creates, updates and deletes together. Prefer it ' +
+      'to repeated create_item or update_item calls when the row count is high; use import_data for a CSV or ' +
+      'JSON file and delete_items when deleting by query rather than by id. Not a transaction: the phases run ' +
+      'in order (create, update, delete) and a failure partway leaves earlier writes committed, so the result ' +
+      'reports what succeeded per phase. validate: true checks the payload against the collection schema before ' +
+      'anything is written. This tool writes data and has nothing to do with analyze_relationships, which only ' +
+      'inspects the data model.',
     inputSchema: {
       type: 'object',
       properties: {
         collection: { type: 'string', description: 'Collection name' },
         operations: {
           type: 'object',
+          description:
+            'The writes to apply, grouped by phase. Phases run in order: create, then update, then ' +
+            'delete. Omit a phase to skip it.',
           properties: {
             create: { type: 'array', description: 'Items to create' },
             update: { type: 'array', description: 'Items to update' },
@@ -387,7 +455,13 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["analyze", "schema", "inspect", "relations", "audit"],
-    description: 'Analyze collection schema with relationship mapping and validation',
+    description:
+      'Inspects one collection and reports its fields with types and constraints, optionally mapped against its ' +
+      'relationships and checked for schema problems. Use it when deciding how to query or extend a collection; ' +
+      'get_collection_schema returns the raw field list alone, validate_collection_schema returns only the ' +
+      'problems, analyze_relationships gives the cross-collection view. Read-only. includeRelations adds ' +
+      'inbound and outbound relations and validateConstraints adds constraint findings; each costs extra ' +
+      'requests against Directus, so leave them off for a quick look.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -406,7 +480,13 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["relationships", "relations", "foreign", "key", "graph", "analyze"],
-    description: 'Analyze relationships across collections',
+    description:
+      'Maps relationships across the instance: which collections point at which, through which fields, and of ' +
+      'which type (o2o, o2m, m2o, m2m, m2a). Pass collection to narrow it to one collection and its neighbours, ' +
+      'or omit it for the whole graph. Use it before create_relationship, before deleting a field or ' +
+      'collection, or when a nested query returns an unexpected shape; analyze_collection_schema covers one ' +
+      'collection in depth. Read-only, and it reads the data model only, never items. System collections are ' +
+      'excluded unless includeSystemCollections is true.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -424,7 +504,14 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["relationship", "relation", "o2m", "m2o", "m2m", "m2a", "link"],
-    description: 'Create relationships between collections (O2O, O2M, M2O, M2M, M2A)',
+    description:
+      'Creates a relationship between collections together with the schema it needs: a m2o or o2o foreign key, ' +
+      'an o2m reverse field, a m2m junction collection, or a m2a any-collection link. Use create_field for a ' +
+      'plain non-relational column and analyze_relationships to see what already exists. Which parameters are ' +
+      'required depends on type: m2m needs junction_collection and both junction fields, m2a needs ' +
+      'allowed_collections and collection_field. Creates real tables and constraints and does not roll back ' +
+      'when a later step fails, so a half-created m2m may need manual cleanup. on_delete and on_update set the ' +
+      'referential actions, where CASCADE means deleting a parent deletes its children.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -454,7 +541,12 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["validate", "schema", "check", "lint", "constraints"],
-    description: 'Validate collection schema and relationships',
+    description:
+      'Checks one collection for schema problems and returns the findings: missing primary key, one-sided or ' +
+      'broken relations, a database type that disagrees with its interface, constraints the stored data ' +
+      'violates. Read-only, and it reports rather than repairs. Use it after create_collection or apply_schema, ' +
+      'or when writes fail for no obvious reason; use diagnose_collection_access when permissions rather than ' +
+      'schema are the suspicion. strict: true also reports conventions and warnings instead of errors alone.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -473,7 +565,13 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["diagnose", "access", "permissions", "troubleshoot", "debug"],
-    description: 'Diagnose collection access issues and permissions',
+    description:
+      'Explains why a collection cannot be read or written with the current token: whether it exists, whether ' +
+      'it is active, whether the token holds item, field and relation permissions, and which of those is the ' +
+      'blocker. Read-only and safe against production. Reach for it first when a tool returns an empty result ' +
+      'or a forbidden error, before concluding the data is missing; validate_collection_schema covers a suspect ' +
+      'schema and refresh_collection_cache a collection that was just created. Each include flag adds targeted ' +
+      'probe requests against Directus.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -494,7 +592,13 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["cache", "refresh", "clear", "reload", "invalidate"],
-    description: 'Refresh Directus collection cache and verify access',
+    description:
+      'Flushes the Directus server cache so recent schema changes become visible, then optionally verifies that ' +
+      'one collection is readable. Use it after create_collection, create_field or apply_schema when a ' +
+      'collection or field is reported as missing; validate_collection_creation answers the narrower question ' +
+      'of whether a new collection is ready. Mutating but not destructive: it discards cached data, never ' +
+      'stored data, though the next requests are slower while the cache refills. Needs a token allowed to flush ' +
+      'the cache, and it affects every client of the instance, not just this session.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -510,7 +614,12 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["validate", "verify", "collection", "created", "check"],
-    description: 'Validate that a newly created collection is properly accessible',
+    description:
+      'Confirms that a newly created collection is usable: present in the schema, active, and readable with the ' +
+      'current token, retrying once after waitTime milliseconds (default 2000) because Directus can lag a ' +
+      'moment behind a create. Read-only. Use it right after create_collection and before writing items; ' +
+      'refresh_collection_cache when it still reports the collection as missing, diagnose_collection_access for ' +
+      'the full permission breakdown.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -529,7 +638,12 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["users", "list", "accounts", "people", "directory"],
-    description: 'Get all users with optional filtering and pagination',
+    description:
+      'Lists Directus users (directus_users) with filtering, sorting, field selection, search and pagination. ' +
+      'Use get_user to fetch one user when the id is known. Returns at most 25 users unless limit says ' +
+      'otherwise. Results are scoped to the permissions of the token, so a token without access to ' +
+      'directus_users gets an empty list rather than an error. Directus never returns password hashes or static ' +
+      'tokens; pass fields to keep responses small.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -550,7 +664,11 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["user", "account", "profile", "fetch", "lookup"],
-    description: 'Get a specific user by ID',
+    description:
+      'Fetches one Directus user by id, with optional field selection. Use get_users to search or list when the ' +
+      'id is unknown. Read-only. Fails when the id does not exist or the token cannot read directus_users. The ' +
+      'password hash and static token are never returned. The shorthand id me is not resolved here, so pass the ' +
+      'actual user id.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -569,7 +687,12 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["files", "assets", "media", "uploads", "list"],
-    description: 'Get files with optional filtering and pagination',
+    description:
+      'Lists files in the Directus file library (directus_files) with filtering, sorting, field selection, ' +
+      'search and pagination, returning their metadata rather than their binary contents. Use import_data to ' +
+      'load rows from a CSV or JSON file, and get_collection_items for files referenced from a content ' +
+      'collection. Returns at most 25 files unless limit says otherwise. Each entry carries the file id, ' +
+      'filename, type, size and storage location, which is what an asset URL is built from.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -591,7 +714,12 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["flows", "automation", "workflows", "list"],
-    description: 'Get flows with optional filtering and pagination',
+    description:
+      'Lists Directus automation flows with filtering, sorting, search and pagination. Use get_flow for one ' +
+      'flow and its operations, get_operations for operations across flows, trigger_flow to run one. status ' +
+      'narrows to active or inactive flows; folder (Directus 12.4+) narrows to one flow folder, where an empty ' +
+      'string means root-level flows. Returns at most 25 flows unless limit says otherwise, and flow metadata ' +
+      'only: operations are omitted unless get_flow asks for them.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -617,7 +745,11 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["flow", "automation", "workflow", "detail", "operations"],
-    description: 'Get a specific flow by ID with optional operations',
+    description:
+      'Fetches one automation flow by id, optionally with its operations expanded so the whole pipeline can be ' +
+      'read in a single call. Use get_flows to find the id and get_operations to list operations across several ' +
+      'flows. Read-only: reading a flow never runs it, trigger_flow does that. include_operations costs an ' +
+      'extra request and makes the response large on long flows.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -636,7 +768,14 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["flow", "automation", "workflow", "create", "trigger"],
-    description: 'Create a new automation flow',
+    description:
+      'Creates an automation flow and, optionally, its first operations in the same call. trigger selects what ' +
+      'starts the flow (manual, schedule, event, webhook) and options carries the trigger-specific ' +
+      'configuration, so a schedule flow needs its cron expression in options. A flow created with status ' +
+      'active starts reacting immediately, events included, so create it inactive when that is not wanted. Each ' +
+      'operations entry needs key, type and editor coordinates; operations are created but not chained, so wire ' +
+      'the resolve and reject paths with update_flow or in the admin app. Use update_flow to change a flow and ' +
+      'trigger_flow to run one.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -676,7 +815,13 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["flow", "automation", "workflow", "update", "edit"],
-    description: 'Update an existing flow',
+    description:
+      'Updates one flow by id: name, status, trigger, description or trigger options. Idempotent, and it ' +
+      'replaces the keys present in data while leaving the rest alone. Switching status to active makes the ' +
+      'flow start reacting to its trigger at once, and changing trigger or options can leave the flow ' +
+      'inconsistent with operations built for the old trigger. Operations themselves are not edited here, so ' +
+      'read them with get_flow or get_operations. This tool writes an automation and has nothing to do with ' +
+      'analyze_relationships, which inspects the data model.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -705,7 +850,11 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["flow", "automation", "workflow", "delete", "remove"],
-    description: 'Delete a flow and all its operations (requires confirmation)',
+    description:
+      'Deletes a flow and all of its operations, permanently. Requires confirm: true. Whatever depended on the ' +
+      'flow stops working, including a webhook URL that pointed at it, its schedule and any flow that triggered ' +
+      'it, and the run history goes with it. Use update_flow with status inactive to switch a flow off and keep ' +
+      'it. Not reversible.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -724,7 +873,12 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["flow", "trigger", "run", "execute", "webhook", "automation"],
-    description: 'Manually trigger a flow execution',
+    description:
+      'Runs one flow now and returns whatever its last operation produced. The side effects are whatever the ' +
+      'flow does, which can mean writing items, sending mail or calling external services, so treat it as ' +
+      'destructive unless the flow is known to be read-only. Flows with a manual trigger accept this reliably; ' +
+      'others may refuse it or ignore the payload. data becomes the trigger payload and must match what the ' +
+      'flow expects. Read the flow with get_flow before running it.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -742,7 +896,12 @@ export const TOOL_DEFINITIONS = [
       openWorldHint: true
     },
     keywords: ["operations", "flow", "steps", "automation", "list"],
-    description: 'Get flow operations with optional filtering by flow',
+    description:
+      'Lists the operations (steps) that make up flows, optionally narrowed to one flow with flow_id. Use ' +
+      'get_flow with include_operations for the whole pipeline of a single flow, and this tool to scan across ' +
+      'flows, for example to find every step of a given type. Read-only: listing an operation never runs it. ' +
+      'Returns at most 50 operations unless limit says otherwise, each with its key, type, editor position and ' +
+      'options.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -761,8 +920,11 @@ export const TOOL_DEFINITIONS = [
     },
     keywords: ["schema", "snapshot", "export", "data", "model", "backup", "migration"],
     description:
-      'Read a snapshot of the data model (collections, fields, relations). Pass ' +
-      'include_collections or exclude_collections for a partial snapshot.',
+      'Exports the data model (collections, fields and relations, with no item data) as a snapshot object that ' +
+      'diff_schema and apply_schema accept. Use it to back up the model before a destructive change, to move a ' +
+      'model between environments, or to version it in git. Read-only. include_collections and ' +
+      'exclude_collections are mutually exclusive and produce a partial snapshot, which on apply can read as a ' +
+      'request to delete everything left out, so prefer a full snapshot for migrations.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -788,8 +950,12 @@ export const TOOL_DEFINITIONS = [
     },
     keywords: ["schema", "diff", "compare", "changes", "migration", "preview"],
     description:
-      'Compare a schema snapshot against the current data model and report what applying it ' +
-      'would change. Read-only — nothing is modified.',
+      'Compares a snapshot against the live data model and reports the operations that applying it would ' +
+      'perform. Read-only, nothing is modified, which makes it the safe way to preview a migration before ' +
+      'apply_schema, the tool that consumes the { hash, diff } object returned here. mode mirror (default) ' +
+      'includes deletions so the live model would end up matching the snapshot exactly; merge drops them for a ' +
+      'strictly additive diff. force bypasses the Directus version and database vendor checks and risks ' +
+      'producing a diff that cannot be applied. An empty diff means the model already matches.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -816,8 +982,12 @@ export const TOOL_DEFINITIONS = [
     },
     keywords: ["schema", "apply", "migrate", "deploy", "sync", "data", "model"],
     description:
-      'Apply a schema diff produced by diff_schema. Changes the live data model and can drop ' +
-      'collections and fields.',
+      'Applies a diff from diff_schema to the live data model, creating, altering and dropping collections and ' +
+      'fields. Requires confirm: true. Destructive and not transactional: a mirror-mode diff drops whatever is ' +
+      'missing from the snapshot, and a failure partway leaves the model half-migrated. The hash ties the diff ' +
+      'to the model it was computed against and the call is refused when the model has moved since; force ' +
+      'bypasses that check and can corrupt the model. Always run diff_schema first and keep a ' +
+      'get_schema_snapshot backup.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -839,14 +1009,16 @@ export const TOOL_DEFINITIONS = [
     },
     keywords: ["import", "csv", "json", "upload", "seed", "bulk", "load", "migrate"],
     description:
-      'Import rows from a CSV or JSON file into one collection, or into several related ' +
-      'collections at once using a flat multi-collection file. Subject to the Directus ' +
-      'IMPORT_MAX_FILE_SIZE limit (50mb by default).\n\n' +
-      'Single-collection: pass `collection`; the file is a plain array of rows.\n' +
-      'Batch (Directus 12.2+): omit `collection`; the file MUST be a JSON array of ' +
-      '`{ "collection": string, "items": object[] }` entries, e.g.\n' +
-      '[{"collection":"authors","items":[{"name":"Ann"}]},' +
-      '{"collection":"articles","items":[{"title":"Hi","author":1}]}]',
+      'Imports rows from a CSV or JSON file into one collection, or into several related collections at once ' +
+      'from a flat multi-collection file. Use it when the data is in a file; bulk_operations takes payloads ' +
+      'already in memory and create_item a single row. Subject to the Directus IMPORT_MAX_FILE_SIZE limit (50mb ' +
+      'by default).\n\nSingle-collection: pass collection, and the file is a plain array of rows.\nBatch ' +
+      '(Directus 12.2+): omit collection, and the file MUST be a JSON array of { \"collection\": string, ' +
+      '\"items\": object[] } entries, ' +
+      'e.g.\n[{\"collection\":\"authors\",\"items\":[{\"name\":\"Ann\"}]},{\"collection\":\"articles\",\"items\":[{\"title\":\"Hi\",\"author\":1}]}]\n\nWrites ' +
+      'immediately and is not a transaction, so a failure partway leaves earlier rows imported. mode merge ' +
+      'upserts instead of inserting, dry_run reports the changes without writing, and only ' +
+      'dangerously_allow_delete together with confirm lets rows absent from the file be deleted.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -887,8 +1059,11 @@ export const TOOL_DEFINITIONS = [
     },
     keywords: ["search", "find", "discover", "tools", "help", "capabilities"],
     description:
-      'Find the tools on this server that match a task description, and return their full ' +
-      'definitions so they can be called directly. Use this first when unsure which tool to use.',
+      'Finds the tools on this server that match a task description and returns their full definitions, so the ' +
+      'right one can be called straight away. Use it first when unsure which tool fits, rather than guessing a ' +
+      'name. Read-only and local: it searches the definitions this server already advertises, reaches Directus ' +
+      'not at all, and so costs nothing against the instance. Matching runs over tool names, descriptions and ' +
+      'keywords. Returns up to 10 tools unless limit says otherwise, best match first.',
     inputSchema: {
       type: 'object',
       properties: {

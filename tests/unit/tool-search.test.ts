@@ -32,7 +32,15 @@ describe('searchTools', () => {
     // returned as the top hit for every query that did not already match it.
     const names = parse(searchTools(DEFS, { query: 'delete item' })).map((t) => t.name);
     expect(names[0]).toBe('delete_items');
-    expect(names.indexOf('get_collection_schema')).toBeGreaterThan(0);
+    expect(names.indexOf('get_collection_schema')).not.toBe(0);
+  });
+
+  it('drops the pin when real matches fill the page', () => {
+    // The pin only fills a spare slot. 'delete item' now matches more than ten
+    // tools on its own, so the page is full of tools the caller asked for.
+    const names = parse(searchTools(DEFS, { query: 'delete item' })).map((t) => t.name);
+    expect(names).toHaveLength(10);
+    expect(names).not.toContain('get_collection_schema');
   });
 
   it('matches on keywords that do not appear in the name or description', () => {
@@ -46,9 +54,11 @@ describe('searchTools', () => {
     expect(limited).toHaveLength(2);
   });
 
-  it('always pins the collection schema tool', () => {
+  it('pins the collection schema tool last when a slot is spare', () => {
     const names = parse(searchTools(DEFS, { query: 'flow' })).map((t) => t.name);
     expect(names).toContain('get_collection_schema');
+    // Appended, never unshifted: the pin is the last entry, behind every match.
+    expect(names[names.length - 1]).toBe('get_collection_schema');
   });
 
   it('reports no matches for nonsense', () => {
