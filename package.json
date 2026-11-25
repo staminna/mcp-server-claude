@@ -71,13 +71,13 @@
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.1.2",
     "eslint": "^9.0.0",
     "istanbul-badges-readme": "^1.9.0",
     "mcp-tdqs": "^0.2.0",
     "msw": "^2.14.6",
     "typescript": "^5.7.2",
-    "vitest": "^4.1.11"
+    "vitest": "^5.1.2"
   },
   "exports": {
     ".": {
