@@ -6,6 +6,8 @@ tracks the Directus major this server supports.
 
 ## [Unreleased]
 
+## [12.7.0] - 2026-11-25
+
 ### Added
 
 - Structured tool output: all 34 tools declare an `outputSchema` and return
@@ -24,6 +26,13 @@ tracks the Directus major this server supports.
   set for every failed call, not only for exceptions. A client that parsed the
   old envelope out of the text block should read the text as it is, or use
   `structuredContent`.
+
+### Changed
+
+- `dotenv` 16 → 18. With a `.env` loaded the server still writes nothing but
+  JSON-RPC to stdout.
+- Development tooling: `vitest` and `@vitest/coverage-v8` 5, `msw` 3,
+  `actions/setup-node` 7.
 
 ## [12.6.1] - 2026-11-09
 
@@ -95,7 +104,8 @@ tracks the Directus major this server supports.
 - First published release: 34 tools over Directus 12 collections, fields,
   relations, items, flows, users, files and access diagnostics.
 
-[Unreleased]: https://github.com/staminna/mcp-server-claude/compare/v12.6.1...HEAD
+[Unreleased]: https://github.com/staminna/mcp-server-claude/compare/v12.7.0...HEAD
+[12.7.0]: https://github.com/staminna/mcp-server-claude/compare/v12.6.1...v12.7.0
 [12.6.1]: https://github.com/staminna/mcp-server-claude/compare/v12.6.0...v12.6.1
 [12.6.0]: https://github.com/staminna/mcp-server-claude/compare/v12.4.1...v12.6.0
 [12.4.1]: https://github.com/staminna/mcp-server-claude/compare/v12.4.0...v12.4.1
