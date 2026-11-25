@@ -20,6 +20,9 @@ import { logger } from './utils/logger.js';
 import { DirectusConfig } from './types/directus.js';
 import { SERVER_NAME, SERVER_VERSION } from './version.js';
 import { searchTools, type ToolDefinition } from './tools/tool-search.js';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv-provider.js';
+import { OUTPUT_SCHEMAS } from './tools/output-schemas.js';
+import { isToolResult, toStructuredContent, type StructuredToolOutput } from './tools/result.js';
 
 export interface ServerDeps {
   directusClient: DirectusClient;
@@ -74,7 +77,7 @@ export function createDeps(config: DirectusConfig): ServerDeps {
   };
 }
 
-export const TOOL_DEFINITIONS = [
+const BASE_TOOL_DEFINITIONS = [
   // Collection Management
   {
     name: 'list_collections',
@@ -1078,6 +1081,43 @@ export const TOOL_DEFINITIONS = [
   },
 ];
 
+// Every tool also declares an `outputSchema` (MCP 2025-06-18 structured tool
+// output). The schemas live in tools/output-schemas.ts so the definitions above
+// stay readable; a tool added here without one fails the unit tests.
+export const TOOL_DEFINITIONS = BASE_TOOL_DEFINITIONS.map((tool) => ({
+  ...tool,
+  outputSchema: OUTPUT_SCHEMAS[tool.name]!,
+}));
+
+const outputValidator = new AjvJsonSchemaValidator();
+const outputValidators = new Map<string, ReturnType<AjvJsonSchemaValidator['getValidator']>>();
+
+/**
+ * Check a tool's structured output against its own `outputSchema` before it
+ * leaves the server. MCP clients validate too and fail the whole call on a
+ * mismatch, so a payload that drifts from the schema is reduced to the
+ * `{ status, summary }` envelope (always valid) and logged, rather than turning
+ * a successful Directus operation into a client-side error.
+ */
+function conformToOutputSchema(name: string, structured: StructuredToolOutput): StructuredToolOutput {
+  const schema = OUTPUT_SCHEMAS[name];
+  if (!schema) return structured;
+
+  let validate = outputValidators.get(name);
+  if (!validate) {
+    validate = outputValidator.getValidator(schema as Parameters<AjvJsonSchemaValidator['getValidator']>[0]);
+    outputValidators.set(name, validate);
+  }
+
+  const outcome = validate(structured);
+  if (outcome.valid) return structured;
+
+  logger.warn(`Structured output of ${name} does not match its outputSchema; sending the envelope only`, {
+    error: outcome.errorMessage,
+  });
+  return { status: structured.status, summary: structured.summary };
+}
+
 export function createHandlers(deps: ServerDeps, env: NodeJS.ProcessEnv = process.env) {
   const {
     directusClient,
@@ -1187,13 +1227,20 @@ export function createHandlers(deps: ServerDeps, env: NodeJS.ProcessEnv = proces
         throw new Error(`Unknown tool: ${name}`);
       }
 
+      // Tool classes return an MCP content envelope. Pass it through as it is —
+      // re-serialising it into a text block hid `isError` from the client and
+      // made every result a JSON string of an envelope.
+      const toolResult = isToolResult(result)
+        ? result
+        : { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+
+      if (toolResult.isError) {
+        return { content: toolResult.content, isError: true };
+      }
+
       return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
+        content: toolResult.content,
+        structuredContent: conformToOutputSchema(name, toStructuredContent(toolResult)),
       };
     } catch (error) {
       logger.error(`Tool execution failed: ${name}`, {

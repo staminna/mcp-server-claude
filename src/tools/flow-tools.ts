@@ -64,7 +64,8 @@ export class FlowTools {
             const folderLine = flow.folder === undefined ? '' : `\n  Folder: ${folderLabel(flow.folder)}`;
             return `• **${flow.name}** (${flow.id})\n  Status: ${flow.status} | Trigger: ${flow.trigger || 'Manual'}${folderLine}\n  Description: ${flow.description || 'No description'}\n  Created: ${flow.date_created || 'Unknown'}`;
           }).join('\n\n')}`
-        }]
+        }],
+        data: { count: flows.length, total_count: meta?.total_count, flows }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -103,7 +104,8 @@ export class FlowTools {
         content: [{
           type: 'text',
           text: `Flow details:\n\n\`\`\`json\n${JSON.stringify(flow, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: { flow }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -139,7 +141,8 @@ export class FlowTools {
         content: [{
           type: 'text',
           text: `Flow ${args.id} triggered successfully:\n\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: { id: args.id, result }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -201,7 +204,8 @@ export class FlowTools {
         content: [{
           type: 'text',
           text: `Flow created successfully:\n\n**Name:** ${flow?.name}\n**ID:** ${flow?.id}\n**Status:** ${flow?.status}\n**Trigger:** ${flow?.trigger || 'Manual'}${flow?.folder ? `\n**Folder:** ${folderLabel(flow.folder)}` : ''}`
-        }]
+        }],
+        data: { flow }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -237,7 +241,8 @@ export class FlowTools {
         content: [{
           type: 'text',
           text: `Flow ${args.id} updated successfully:\n\n\`\`\`json\n${JSON.stringify(flow, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: { id: args.id, flow }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -263,7 +268,9 @@ export class FlowTools {
           content: [{
             type: 'text',
             text: `⚠️ **Warning**: This will permanently delete flow ${args.id} and all its operations.\n\nTo proceed, call this tool again with \`confirm: true\`.`
-          }]
+          }],
+          status: 'confirmation_required',
+          data: { id: args.id, deleted: false }
         };
       }
 
@@ -278,7 +285,8 @@ export class FlowTools {
         content: [{
           type: 'text',
           text: `Flow ${args.id} has been deleted successfully.`
-        }]
+        }],
+        data: { id: args.id, deleted: true }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -331,7 +339,8 @@ export class FlowTools {
           text: `Operations (${operations.length}${meta?.total_count ? ` of ${meta.total_count}` : ''}):\n\n${operations.map((op: any) => 
             `• **${op.name || op.key}** (${op.id})\n  Type: ${op.type} | Flow: ${op.flow}\n  Position: (${op.position_x}, ${op.position_y})`
           ).join('\n\n')}`
-        }]
+        }],
+        data: { count: operations.length, total_count: meta?.total_count, operations }
       };
     } catch (error) {
       logger.endTimer(operationId);

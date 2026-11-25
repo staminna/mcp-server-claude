@@ -49,7 +49,16 @@ export class CollectionTools {
               : isInactive ? ' _(inactive — item access blocked)_' : '';
             return `• **${c.collection}**${marker} - ${c.meta?.note || 'No description'}`;
           }).join('\n')}`
-        }]
+        }],
+        data: {
+          count: collections.length,
+          collections: collections.map((c: any) => ({
+            collection: c.collection,
+            note: c.meta?.note ?? null,
+            is_folder: c.schema === null || c.schema === undefined,
+            is_inactive: c.meta?.status === 'inactive'
+          }))
+        }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -104,7 +113,8 @@ export class CollectionTools {
         content: [{
           type: 'text',
           text: `Schema for collection "${args.collection}":\n\n\`\`\`json\n${JSON.stringify(schema, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: schema
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -160,7 +170,12 @@ export class CollectionTools {
               'the admin UI and has no table, so it cannot hold items.'
             : `Collection "${args.collection}" created successfully` +
               `${args.fields?.length ? ` with ${args.fields.length} fields` : ' with an auto-increment `id`'}.`
-        }]
+        }],
+        data: {
+          collection: args.collection,
+          folder: Boolean(args.folder),
+          field_count: args.fields?.length ?? 0
+        }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -186,7 +201,9 @@ export class CollectionTools {
           content: [{
             type: 'text',
             text: `⚠️ **Warning**: This will permanently delete the collection "${args.collection}" and all its data.\n\nTo proceed, call this tool again with \`confirm: true\`.`
-          }]
+          }],
+          status: 'confirmation_required',
+          data: { collection: args.collection, deleted: false }
         };
       }
 
@@ -201,7 +218,8 @@ export class CollectionTools {
         content: [{
           type: 'text',
           text: `Collection "${args.collection}" has been deleted successfully.`
-        }]
+        }],
+        data: { collection: args.collection, deleted: true }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -264,7 +282,14 @@ export class CollectionTools {
         content: [{
           type: 'text',
           text: `Items from "${args.collection}" (${count}${meta?.total_count ? ` of ${meta.total_count}` : ''}):\n\n\`\`\`json\n${JSON.stringify(items, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: {
+          collection: args.collection,
+          count,
+          total_count: meta?.total_count,
+          filter_count: meta?.filter_count,
+          items
+        }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -303,7 +328,8 @@ export class CollectionTools {
         content: [{
           type: 'text',
           text: `Item created successfully in "${args.collection}":\n\n\`\`\`json\n${JSON.stringify(item, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: { collection: args.collection, item }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -338,7 +364,8 @@ export class CollectionTools {
             text: `❌ Published items in versioned collections are read-only in Directus 12.\n\n` +
                   `Target a draft version instead — pass its version key as \`version\`, ` +
                   `then promote the draft when it is ready.`
-          }]
+          }],
+          status: 'rejected'
         };
       }
 
@@ -348,7 +375,8 @@ export class CollectionTools {
           content: [{
             type: 'text',
             text: `Nothing to update: \`data\` was empty, so no request was sent.`
-          }]
+          }],
+          status: 'noop'
         };
       }
 
@@ -369,7 +397,8 @@ export class CollectionTools {
         content: [{
           type: 'text',
           text: `Item ${args.id} updated successfully in "${args.collection}":\n\n\`\`\`json\n${JSON.stringify(item, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: { collection: args.collection, id: args.id, item }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -412,7 +441,8 @@ export class CollectionTools {
             type: 'text',
             text: `❌ Provide either \`ids\` or \`query\`, not both. ` +
                   `\`ids\` deletes specific items; \`query\` deletes everything it matches.`
-          }]
+          }],
+          status: 'rejected'
         };
       }
 
@@ -422,7 +452,8 @@ export class CollectionTools {
             type: 'text',
             text: `❌ \`cascadeDelete\` needs explicit \`ids\` — related items are resolved per item, ` +
                   `so it cannot be combined with \`query\`.`
-          }]
+          }],
+          status: 'rejected'
         };
       }
 
@@ -432,7 +463,8 @@ export class CollectionTools {
             type: 'text',
             text: `Nothing to delete: neither \`ids\` nor \`query\` was provided, so no request was sent.\n\n` +
                   `To delete every item in "${args.collection}", pass \`query: { "limit": -1 }\` explicitly.`
-          }]
+          }],
+          status: 'noop'
         };
       }
 
@@ -452,7 +484,15 @@ export class CollectionTools {
                     : `Query: \`${JSON.stringify(query)}\`\n\n`) +
                   (relatedInfo ? `**Related items that will be affected:**\n${relatedInfo}\n\n` : '') +
                   `To proceed, call this tool again with \`confirm: true\`.`
-          }]
+          }],
+          status: 'confirmation_required',
+          data: {
+            collection: args.collection,
+            deleted: false,
+            ...(hasIds ? { ids } : { query }),
+            cascade: Boolean(args.cascadeDelete),
+            ...(relatedInfo && { related_items: relatedInfo })
+          }
         };
       }
 
@@ -476,7 +516,13 @@ export class CollectionTools {
         content: [{
           type: 'text',
           text: `Successfully deleted ${target} from collection "${args.collection}"${args.cascadeDelete ? ' with cascade' : ''}.`
-        }]
+        }],
+        data: {
+          collection: args.collection,
+          deleted: true,
+          ...(hasIds ? { ids } : { query }),
+          cascade: Boolean(args.cascadeDelete)
+        }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -549,7 +595,15 @@ export class CollectionTools {
                 `- **Interface**: ${args.interface || this.getDefaultInterface(args.type)}\n` +
                 `- **Required**: ${args.required ? 'Yes' : 'No'}\n` +
                 `- **Unique**: ${args.unique ? 'Yes' : 'No'}`
-        }]
+        }],
+        data: {
+          collection: args.collection,
+          field: args.field,
+          type: args.type,
+          interface: args.interface || this.getDefaultInterface(args.type),
+          required: Boolean(args.required),
+          unique: Boolean(args.unique)
+        }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -621,7 +675,12 @@ export class CollectionTools {
                 `- **Collection**: ${args.collection}\n` +
                 `- **Field**: ${args.field}\n` +
                 `- **Changes**: ${Object.keys(args).filter(k => k !== 'collection' && k !== 'field').join(', ')}`
-        }]
+        }],
+        data: {
+          collection: args.collection,
+          field: args.field,
+          changes: Object.keys(args).filter(k => k !== 'collection' && k !== 'field')
+        }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -666,7 +725,18 @@ export class CollectionTools {
                       `- ${r.collection}.${r.field} → ${r.related_collection}`
                     ).join('\n')}\n\n` : '') +
                   `To proceed, call this tool again with \`confirm: true\`.`
-          }]
+          }],
+          status: 'confirmation_required',
+          data: {
+            collection: args.collection,
+            field: args.field,
+            deleted: false,
+            relations: relatedRelations.map((r: DirectusRelation) => ({
+              collection: r.collection,
+              field: r.field,
+              related_collection: r.related_collection
+            }))
+          }
         };
       }
 
@@ -684,7 +754,8 @@ export class CollectionTools {
         content: [{
           type: 'text',
           text: `Field "${args.field}" has been deleted from collection "${args.collection}".`
-        }]
+        }],
+        data: { collection: args.collection, field: args.field, deleted: true }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -731,7 +802,8 @@ export class CollectionTools {
             type: 'text',
             text: `Nothing to do: \`operations\` contained no create, update or delete entries, ` +
                   `so no request was sent.`
-          }]
+          }],
+          status: 'noop'
         };
       }
 
@@ -752,7 +824,9 @@ export class CollectionTools {
             content: [{
               type: 'text',
               text: `❌ **Validation Failed**\n\n${validation.errors.join('\n')}`
-            }]
+            }],
+            status: 'rejected',
+            data: { validation_errors: validation.errors }
           };
         }
       }
@@ -820,9 +894,9 @@ export class CollectionTools {
       // yet the wording claimed partial success.
       const bulkChanged = results.created.length + results.updated.length + results.deleted.length;
       const bulkOutcome =
-        results.errors.length === 0 ? { icon: '✅', label: 'Completed' } :
-        bulkChanged > 0 ? { icon: '⚠️', label: 'Partially Completed' } :
-        { icon: '❌', label: 'Failed' };
+        results.errors.length === 0 ? { icon: '✅', label: 'Completed', outcome: 'completed' } :
+        bulkChanged > 0 ? { icon: '⚠️', label: 'Partially Completed', outcome: 'partial' } :
+        { icon: '❌', label: 'Failed', outcome: 'failed' };
 
       return {
         content: [{
@@ -835,7 +909,8 @@ export class CollectionTools {
                 (results.errors.length > 0 ? 
                   `**Errors:**\n${results.errors.map((e: any) => `- ${e.operation}: ${e.error}`).join('\n')}\n\n` : '') +
                 `\`\`\`json\n${JSON.stringify(results, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: { outcome: bulkOutcome.outcome, ...results }
       };
     } catch (error) {
       logger.endTimer(operationId);

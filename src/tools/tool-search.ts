@@ -8,6 +8,8 @@
 // Deliberately a pure function rather than a class — it needs no Directus
 // client, so it stays trivially testable and adds no ServerDeps wiring.
 
+import type { ToolResult } from './result.js';
+
 export interface ToolDefinition {
   name: string;
   description: string;
@@ -51,12 +53,13 @@ function scoreTool(tool: ToolDefinition, terms: string[]): number {
 export function searchTools(
   definitions: readonly ToolDefinition[],
   args: { query?: string; limit?: number } = {}
-): { content: Array<{ type: string; text: string }> } {
+): ToolResult {
   const query = (args.query ?? '').trim();
 
   if (!query) {
     return {
-      content: [{ type: 'text', text: '❌ `query` is required — describe the task you want a tool for.' }]
+      content: [{ type: 'text', text: '❌ `query` is required — describe the task you want a tool for.' }],
+      status: 'rejected'
     };
   }
 
@@ -73,7 +76,8 @@ export function searchTools(
       content: [{
         type: 'text',
         text: `No tools matched "${query}". Call tools/list to see all ${definitions.length} tools.`
-      }]
+      }],
+      data: { query, count: 0, tools: [] }
     };
   }
 
@@ -95,6 +99,7 @@ export function searchTools(
       type: 'text',
       text: `Found ${matches.length} tool(s) matching "${query}":\n\n` +
             `\`\`\`json\n${JSON.stringify(matches, null, 2)}\n\`\`\``
-    }]
+    }],
+    data: { query, count: matches.length, tools: matches }
   };
 }

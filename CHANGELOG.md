@@ -6,6 +6,25 @@ tracks the Directus major this server supports.
 
 ## [Unreleased]
 
+### Added
+
+- Structured tool output: all 34 tools declare an `outputSchema` and return
+  `structuredContent` shaped `{ status, summary, data }`. `status` says what
+  happened (`ok`, `confirmation_required`, `noop`, `rejected`) so an agent no
+  longer has to read prose to learn whether a destructive call ran or only
+  asked for `confirm`; `data` carries the tool's payload. The server checks
+  each payload against its own schema before sending it.
+
+### Fixed
+
+- Tool results are no longer double-wrapped. The text block used to be a
+  JSON-encoded `{ "content": [...] }` envelope rather than the tool's own
+  text, and a failure reported by a tool class was buried inside it without
+  `isError`. Clients now receive the readable text directly, and `isError` is
+  set for every failed call, not only for exceptions. A client that parsed the
+  old envelope out of the text block should read the text as it is, or use
+  `structuredContent`.
+
 ## [12.6.1] - 2026-11-09
 
 ### Changed

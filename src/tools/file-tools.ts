@@ -5,6 +5,7 @@ import { logger } from '../utils/logger.js';
 import { QueryOptions, UploadOptions } from '../types/directus.js';
 import fs from 'fs';
 import path from 'path';
+import type { ToolStatus } from './result.js';
 
 export class FileTools {
   constructor(private client: DirectusClient) {}
@@ -33,20 +34,24 @@ export class FileTools {
 
     try {
       if (args.file_path && args.file_data) {
-        return this.text('❌ Provide either `file_path` or `file_data`, not both.');
+        return this.text('❌ Provide either `file_path` or `file_data`, not both.', false, { status: 'rejected' });
       }
 
       if (args.collection && (args.mode || args.dry_run || args.dangerously_allow_delete)) {
         return this.text(
           '❌ `mode`, `dry_run` and `dangerously_allow_delete` apply to multi-collection batch ' +
-          'imports only. Omit `collection` to use them.'
+          'imports only. Omit `collection` to use them.',
+          false,
+          { status: 'rejected' }
         );
       }
 
       if (args.dangerously_allow_delete && !args.confirm) {
         return this.text(
           '⚠️ `dangerously_allow_delete` removes rows that are absent from the file.\n\n' +
-          'To proceed, call this tool again with `confirm: true`.'
+          'To proceed, call this tool again with `confirm: true`.',
+          false,
+          { status: 'confirmation_required' }
         );
       }
 
@@ -75,7 +80,9 @@ export class FileTools {
           `${(maxBytes / 1_048_576).toFixed(0)} MB limit.\n\n` +
           'Directus caps import uploads with `IMPORT_MAX_FILE_SIZE` (default `50mb`). Raise it on ' +
           'the Directus instance, or set `DIRECTUS_IMPORT_MAX_FILE_SIZE` here if the server allows ' +
-          'more than this client assumes.'
+          'more than this client assumes.',
+          false,
+          { status: 'rejected' }
         );
       }
 
@@ -107,10 +114,14 @@ export class FileTools {
       logger.toolEnd('import_data', duration, true, { collection: args.collection, batch });
 
       if (!batch) {
-        return this.text(`✅ Imported \`${filename}\` into "${args.collection}".`);
+        return this.text(`✅ Imported \`${filename}\` into "${args.collection}".`, false, {
+          data: { batch: false, collection: args.collection, filename }
+        });
       }
 
-      return this.text(this.formatImportResult(response.data, args.dry_run));
+      return this.text(this.formatImportResult(response.data, args.dry_run), false, {
+        data: { batch: true, filename, dry_run: Boolean(args.dry_run), result: response.data }
+      });
     } catch (error) {
       logger.endTimer(operationId);
       logger.toolError('import_data', error as Error, { collection: args.collection });
@@ -155,8 +166,12 @@ export class FileTools {
       : `${header}\n\nNo collections were affected.`;
   }
 
-  private text(message: string, isError = false): any {
-    return { content: [{ type: 'text', text: message }], ...(isError && { isError: true }) };
+  private text(
+    message: string,
+    isError = false,
+    extra: { status?: ToolStatus; data?: Record<string, unknown> } = {}
+  ): any {
+    return { content: [{ type: 'text', text: message }], ...(isError && { isError: true }), ...extra };
   }
 
   async uploadFile(args: {
@@ -274,7 +289,8 @@ export class FileTools {
           text: `Files (${files.length}${meta?.total_count ? ` of ${meta.total_count}` : ''}):\n\n${files.map((file: any) => 
             `• **${file.filename_download}** (${file.id})\n  Title: ${file.title || 'No title'}\n  Type: ${file.type || 'Unknown'} | Size: ${file.filesize ? `${Math.round(file.filesize / 1024)} KB` : 'Unknown'}\n  Uploaded: ${file.uploaded_on || 'Unknown'}`
           ).join('\n\n')}`
-        }]
+        }],
+        data: { count: files.length, total_count: meta?.total_count, files }
       };
     } catch (error) {
       logger.endTimer(operationId);

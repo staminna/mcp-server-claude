@@ -13,7 +13,7 @@
 
 | Statements | Branches | Functions | Lines |
 |------------|----------|-----------|-------|
-| ![Statements](https://img.shields.io/badge/statements-98.66%25-brightgreen.svg?style=flat) | ![Branches](https://img.shields.io/badge/branches-98%25-brightgreen.svg?style=flat) | ![Functions](https://img.shields.io/badge/functions-97.31%25-brightgreen.svg?style=flat) | ![Lines](https://img.shields.io/badge/lines-98.65%25-brightgreen.svg?style=flat) |
+| ![Statements](https://img.shields.io/badge/statements-98.64%25-brightgreen.svg?style=flat) | ![Branches](https://img.shields.io/badge/branches-98.01%25-brightgreen.svg?style=flat) | ![Functions](https://img.shields.io/badge/functions-97.46%25-brightgreen.svg?style=flat) | ![Lines](https://img.shields.io/badge/lines-98.68%25-brightgreen.svg?style=flat) |
 
 Coverage badges are generated from `coverage/coverage-summary.json` by `npm run badges` (no external service required). Run `npm run test:coverage` first.
 
@@ -196,6 +196,22 @@ For a private CA or a client certificate. `CA`/`CERT`/`KEY`/`PFX` accept a file 
 </details>
 
 **Authentication:** a static Directus token over stdio. No OAuth is needed: the MCP spec reserves OAuth for HTTP transports and tells stdio servers to read credentials from the environment. Use a dedicated least-privilege user in production. With a Claude Pro/Max subscription in Claude Code or Desktop you don't need an Anthropic API key either.
+
+#### Structured output
+
+Every tool declares an MCP `outputSchema` and returns `structuredContent` next to its readable text, so an agent can branch on a field instead of parsing prose:
+
+```json
+{
+  "status": "confirmation_required",
+  "summary": "⚠️ **Warning**: This will permanently delete 2 item(s) from collection \"articles\".",
+  "data": { "collection": "articles", "deleted": false, "ids": [1, 2], "cascade": false }
+}
+```
+
+- `status` is `ok`, `confirmation_required` (nothing changed, call again with `confirm: true`), `noop` (nothing to do, no request sent) or `rejected` (arguments unusable, no request sent). Each tool advertises only the statuses it can report.
+- `data` is the tool's payload: the items, the schema, the diff, the per-entry results of a bulk run. Values this server builds are typed; values Directus returns are described but left untyped, because their shape follows your data model.
+- Failures set `isError` and carry no structured output.
 
 ---
 
