@@ -62,7 +62,7 @@ function recordAll(): SeenRequest[] {
 
 let stderrSpy: MockInstance;
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
 beforeEach(() => {
   // The axios interceptors log 4xx/5xx responses at ERROR level (singleton
   // logger -> process.stderr). Silence it so error-path tests stay quiet.
