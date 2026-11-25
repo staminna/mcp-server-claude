@@ -109,6 +109,48 @@ describe('MCP server e2e (features enabled)', () => {
     expect(update.inputSchema.required).toEqual(['collection', 'id', 'data']);
   });
 
+  it('declares an outputSchema for every tool over the wire', async () => {
+    const { tools } = await client.listTools();
+    for (const tool of tools) {
+      expect(tool.outputSchema, `${tool.name} has no outputSchema`).toBeDefined();
+      expect(tool.outputSchema!.type).toBe('object');
+      expect(tool.outputSchema!.required).toEqual(['status', 'summary']);
+    }
+  });
+
+  it('returns structuredContent the SDK client accepts against the outputSchema', async () => {
+    // Client.callTool validates structuredContent against the tool's
+    // outputSchema and throws on a mismatch or a missing payload, so reaching
+    // the assertions at all is the conformance check.
+    await client.listTools();
+    const result = await client.callTool({ name: 'list_collections', arguments: {} });
+    const structured = result.structuredContent as {
+      status: string;
+      summary: string;
+      data: { count: number; collections: Array<{ collection: string }> };
+    };
+    expect(structured.status).toBe('ok');
+    expect(structured.data.count).toBe(structured.data.collections.length);
+    expect(structured.data.collections.map((c) => c.collection)).toContain('articles');
+    // The text block is readable prose, not a JSON-encoded content envelope.
+    const text = (result.content as Array<{ text: string }>)[0]!.text;
+    expect(text.startsWith('Available collections')).toBe(true);
+  });
+
+  it('asks for confirmation in structured form before deleting', async () => {
+    await client.listTools();
+    const result = await client.callTool({
+      name: 'delete_items',
+      arguments: { collection: 'articles', ids: [1] },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toMatchObject({
+      status: 'confirmation_required',
+      data: { collection: 'articles', deleted: false, ids: [1] },
+    });
+    expect(mock.lastRequest('DELETE', '/items/articles')).toBeUndefined();
+  });
+
   it('delivers safety annotations over the wire', async () => {
     const { tools } = await client.listTools();
 

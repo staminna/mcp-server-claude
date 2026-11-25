@@ -94,7 +94,10 @@ function rpc(method, params, timeoutMs = 60000) {
 const notify = (method, params) =>
   server.stdin.write(JSON.stringify({ jsonrpc: '2.0', method, params }) + '\n');
 
-/** The server wraps each tool's {content:[...]} inside another one; unwrap to text. */
+/**
+ * Servers up to 12.6.1 wrapped each tool's {content:[...]} inside another one;
+ * later ones send the text directly. Unwrap either to text.
+ */
 function unwrap(res) {
   if (res.error) return `RPC error: ${res.error.message}`;
   const outer = res.result?.content?.[0]?.text ?? '';

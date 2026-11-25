@@ -125,7 +125,8 @@ export class SchemaTools {
                 `## Relationships\n${this.formatRelationshipMap(relationshipMap)}\n\n` +
                 `## Validation\n${this.formatValidation(validation)}\n\n` +
                 `\`\`\`json\n${JSON.stringify(schema, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: schema
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -186,7 +187,8 @@ export class SchemaTools {
           text: `# Relationship Analysis\n\n` +
                 `${analyses.map(a => this.formatRelationshipAnalysis(a)).join('\n\n')}\n\n` +
                 `\`\`\`json\n${JSON.stringify(analyses, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: { analyses }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -245,7 +247,14 @@ export class SchemaTools {
                 `- **Field**: ${args.field}\n` +
                 `- **Related Collection**: ${'related_collection' in args ? args.related_collection : 'N/A'}\n\n` +
                 `${result.details || ''}`
-        }]
+        }],
+        data: {
+          type: args.type,
+          collection: args.collection,
+          field: args.field,
+          ...('related_collection' in args && { related_collection: args.related_collection }),
+          details: result.details
+        }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -302,7 +311,8 @@ export class SchemaTools {
                 `**Errors**: ${validation.errors.length}\n` +
                 `**Warnings**: ${validation.warnings.length}\n\n` +
                 `${this.formatValidation(validation)}`
-        }]
+        }],
+        data: { collection: args.collection, validation }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -338,7 +348,8 @@ export class SchemaTools {
           content: [{
             type: 'text',
             text: '❌ `include_collections` and `exclude_collections` are mutually exclusive — pass at most one.'
-          }]
+          }],
+          status: 'rejected'
         };
       }
 
@@ -369,7 +380,8 @@ export class SchemaTools {
                 `- **Relations**: ${snapshot?.relations?.length ?? 0}\n\n` +
                 `Pass this object to \`diff_schema\` to see what applying it would change.\n\n` +
                 `\`\`\`json\n${JSON.stringify(snapshot, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: { partial, snapshot }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -399,14 +411,15 @@ export class SchemaTools {
           content: [{
             type: 'text',
             text: '❌ `snapshot` is required — pass the object returned by `get_schema_snapshot`.'
-          }]
+          }],
+          status: 'rejected'
         };
       }
 
       const tooLarge = this.payloadTooLarge(args.snapshot, 'This snapshot');
       if (tooLarge) {
         logger.endTimer(operationId);
-        return { content: [{ type: 'text', text: tooLarge }] };
+        return { content: [{ type: 'text', text: tooLarge }], status: 'rejected' };
       }
 
       logger.toolStart('diff_schema', { mode: args.mode, force: args.force });
@@ -426,7 +439,12 @@ export class SchemaTools {
           content: [{
             type: 'text',
             text: `✅ **No schema changes** — the snapshot matches the current data model.`
-          }]
+          }],
+          data: {
+            has_changes: false,
+            mode: args.mode ?? 'mirror',
+            counts: { collections: 0, fields: 0, relations: 0 }
+          }
         };
       }
 
@@ -445,7 +463,8 @@ export class SchemaTools {
                   : `\`mirror\` mode includes deletions. Review before applying.\n\n`) +
                 `Pass this object to \`apply_schema\` to apply it.\n\n` +
                 `\`\`\`json\n${JSON.stringify(diff, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: { has_changes: true, mode: args.mode ?? 'mirror', counts, diff }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -475,14 +494,15 @@ export class SchemaTools {
           content: [{
             type: 'text',
             text: '❌ `diff` is required — pass the `{ hash, diff }` object returned by `diff_schema`.'
-          }]
+          }],
+          status: 'rejected'
         };
       }
 
       const applyTooLarge = this.payloadTooLarge(args.diff, 'This diff');
       if (applyTooLarge) {
         logger.endTimer(operationId);
-        return { content: [{ type: 'text', text: applyTooLarge }] };
+        return { content: [{ type: 'text', text: applyTooLarge }], status: 'rejected' };
       }
 
       const counts = this.summarizeDiff(args.diff);
@@ -496,7 +516,9 @@ export class SchemaTools {
                   `- **Fields affected**: ${counts.fields}\n` +
                   `- **Relations affected**: ${counts.relations}\n\n` +
                   `To proceed, call this tool again with \`confirm: true\`.`
-          }]
+          }],
+          status: 'confirmation_required',
+          data: { applied: false, counts }
         };
       }
 
@@ -514,7 +536,8 @@ export class SchemaTools {
                 `- **Collections**: ${counts.collections}\n` +
                 `- **Fields**: ${counts.fields}\n` +
                 `- **Relations**: ${counts.relations}`
-        }]
+        }],
+        data: { applied: true, counts }
       };
     } catch (error) {
       logger.endTimer(operationId);

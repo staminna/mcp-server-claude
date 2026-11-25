@@ -186,7 +186,8 @@ export class DiagnosticTools {
                 `## Test Results\n\n${this.formatTestResults(diagnostics.tests)}\n\n` +
                 `## Recommendations\n\n${diagnostics.summary.recommendations.join('\n')}\n\n` +
                 `\`\`\`json\n${JSON.stringify(diagnostics, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: diagnostics
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -288,7 +289,8 @@ export class DiagnosticTools {
                   `- **${op.operation}**: ${op.success ? '✅' : '❌'} ${op.message}`
                 ).join('\n')}\n\n` +
                 `\`\`\`json\n${JSON.stringify(results, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: results
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -416,7 +418,8 @@ export class DiagnosticTools {
                 ).join('\n')}\n\n` +
                 `## Recommendations\n\n${results.summary.recommendations.join('\n')}\n\n` +
                 `\`\`\`json\n${JSON.stringify(results, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: results
       };
     } catch (error) {
       logger.endTimer(operationId);

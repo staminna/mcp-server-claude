@@ -45,7 +45,8 @@ export class UserTools {
           text: `Users (${users.length}${meta?.total_count ? ` of ${meta.total_count}` : ''}):\n\n${users.map((user: any) => 
             `• **${user.first_name || ''} ${user.last_name || ''}** (${user.email})\n  ID: ${user.id} | Status: ${user.status} | Role: ${user.role || 'No role'} | Last Access: ${user.last_access || 'Never'}`
           ).join('\n\n')}`
-        }]
+        }],
+        data: { count: users.length, total_count: meta?.total_count, users }
       };
     } catch (error) {
       logger.endTimer(operationId);
@@ -82,7 +83,8 @@ export class UserTools {
         content: [{
           type: 'text',
           text: `User details:\n\n\`\`\`json\n${JSON.stringify(user, null, 2)}\n\`\`\``
-        }]
+        }],
+        data: { user }
       };
     } catch (error) {
       logger.endTimer(operationId);
